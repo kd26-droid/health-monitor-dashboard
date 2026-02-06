@@ -8,6 +8,7 @@ import { useMonitorAuth } from '../Hooks/useMonitorAuth';
 import { useMonitorFilters } from '../Hooks/useMonitorFilters';
 import { useHealthPolling } from '../Hooks/useHealthPolling';
 import { useLogPolling } from '../Hooks/useLogPolling';
+import { useErrorsPolling } from '../Hooks/useErrorsPolling';
 import HealthBanner from '../Components/HealthBanner';
 import MetricsCards from '../Components/MetricsCards';
 import Toolbar from '../Components/Toolbar';
@@ -15,6 +16,7 @@ import LogTable from '../Components/LogTable';
 import TokenPrompt from '../Components/TokenPrompt';
 import EmptyState from '../Components/EmptyState';
 import DbDiagnosticsPanel from '../Components/DbDiagnosticsPanel';
+import ErrorBreakdownPanel from '../Components/ErrorBreakdownPanel';
 import '../styles/healthMonitor.scss';
 
 // ── Helpers ──
@@ -101,6 +103,7 @@ const HealthMonitorPage: React.FC = () => {
     const filters = useMonitorFilters();
     const health = useHealthPolling(auth.handle403);
     const logs = useLogPolling(filters.serverFilters, auth.handle403);
+    const errors = useErrorsPolling(auth.handle403);
 
     // Step 1: Hide OPTIONS unless explicitly selected
     const optionsFiltered = useMemo(() => {
@@ -209,6 +212,14 @@ const HealthMonitorPage: React.FC = () => {
                     onToTsChange={filters.setToTs}
                     onToggleLive={logs.toggleLive}
                     onClear={logs.clearEntries}
+                />
+
+                {/* Error Breakdown Panel */}
+                <ErrorBreakdownPanel
+                    errorsData={errors.errorsData}
+                    windowMinutes={errors.windowMinutes}
+                    onWindowChange={errors.setWindowMinutes}
+                    isLoading={errors.isLoading}
                 />
 
                 {/* DB Diagnostics only shown in non-production environments */}

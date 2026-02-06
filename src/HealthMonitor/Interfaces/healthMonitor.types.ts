@@ -10,6 +10,13 @@ export type TEventType =
 
 export type THttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'OPTIONS';
 
+// ── N+1 Query Pattern ──
+
+export interface INPlusOnePattern {
+    pattern: string;
+    count: number;
+}
+
 // ── Log Entry (from GET /monitor/logs/) ──
 
 export interface ILogEntry {
@@ -37,6 +44,7 @@ export interface ILogEntry {
     task_state?: string;
     retry?: number | null;
     max_retries?: number | null;
+    queue_time_s?: number | null; // NEW: seconds task waited in queue
 
     // Always present
     elapsed_s: number;
@@ -49,6 +57,9 @@ export interface ILogEntry {
     mem_after_mb: number;
     mem_delta_mb: number;
     db_connections?: number;
+
+    // N+1 query detection (NEW)
+    n_plus_1?: INPlusOnePattern[] | null;
 
     // Errors only
     error_type?: string;
@@ -77,6 +88,16 @@ export interface ILogsResponse {
 
 export type THealthStatus = 'healthy' | 'degraded' | 'unhealthy';
 
+export interface IHealthDependencies {
+    [serviceName: string]: string; // "ok" or "error: ..."
+}
+
+export interface IHealthErrorRate {
+    total_requests: number;
+    error_count: number;
+    error_pct: number;
+}
+
 export interface IHealthResponse {
     status: THealthStatus;
     checks: {
@@ -84,8 +105,17 @@ export interface IHealthResponse {
         memory_rss_mb: number;
         cpu_percent: number;
         db_connections: number;
+        max_connections?: number;
         blocked_queries?: number;
         deadlocks_total?: number;
+        // NEW fields
+        connection_pool_pct?: number;
+        connection_pool_warning?: boolean;
+        cache_hit_ratio?: number;
+        cache_hit_warning?: boolean;
+        long_running_transactions?: number;
+        dependencies?: IHealthDependencies;
+        error_rate?: IHealthErrorRate;
     };
 }
 
@@ -128,8 +158,38 @@ export interface ISeqScanTable {
     n_dead_tup: number;
 }
 
+// NEW: Long-running transaction
+export interface ILongRunningTransaction {
+    pid: string;
+    usename: string;
+    txn_duration_s: string;
+    query_duration_s: string;
+    state: string;
+    wait_event_type: string;
+    query_preview: string;
+}
+
+// NEW: Table bloat info
+export interface ITableBloat {
+    relname: string;
+    n_live_tup: string;
+    n_dead_tup: string;
+    dead_pct: string;
+    last_autovacuum: string | null;
+    last_autoanalyze: string | null;
+}
+
+// NEW: Low index usage table
+export interface ILowIndexUsage {
+    relname: string;
+    seq_scan: string;
+    idx_scan: string;
+    n_live_tup: string;
+    idx_usage_pct: string;
+}
+
 export interface IDbResponse {
-    connections: { active: number; idle: number };
+    connections: { active: number; idle: number; 'idle in transaction'?: number };
     total_connections: number;
     max_connections: number;
     active_queries: IActiveQuery[];
@@ -138,6 +198,16 @@ export interface IDbResponse {
     blocked_queries?: IBlockedQuery[];
     lock_summary?: ILockSummary[];
     deadlocks_total?: number;
+    // NEW fields
+    connection_pool_pct?: number;
+    connection_pool_warning?: boolean;
+    cache_hit_ratio?: number;
+    cache_blocks_hit?: number;
+    cache_blocks_read?: number;
+    cache_hit_warning?: boolean;
+    long_running_transactions?: ILongRunningTransaction[];
+    table_bloat?: ITableBloat[];
+    low_index_usage?: ILowIndexUsage[];
 }
 
 // ── System (from GET /monitor/system/) ──
@@ -167,6 +237,28 @@ export interface ISystemResponse {
         cpu_percent: number;
     };
     gunicorn_workers?: IGunicornWorker[];
+}
+
+// ── Errors Breakdown (from GET /monitor/errors/) ── NEW
+
+export interface IEndpointErrorInfo {
+    endpoint: string;
+    total: number;
+    errors: number;
+    error_pct: number;
+    slow: number;
+    n_plus_1_count: number;
+    avg_time_s: number;
+    max_time_s: number;
+    avg_db_queries: number;
+    max_db_queries: number;
+    error_types: { [errorType: string]: number };
+}
+
+export interface IErrorsResponse {
+    window_minutes: number;
+    total_entries: number;
+    endpoints: IEndpointErrorInfo[];
 }
 
 // ── Filter State ──
