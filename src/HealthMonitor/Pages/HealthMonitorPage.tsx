@@ -100,7 +100,12 @@ const HealthMonitorPage: React.FC = () => {
     const auth = useMonitorAuth();
     const filters = useMonitorFilters();
     const health = useHealthPolling(auth.handle403);
-    const logs = useLogPolling(filters.serverFilters, auth.handle403);
+
+    // Historical mode params - when set, queries DB instead of live buffer
+    const historicalParams = filters.isHistoricalMode
+        ? { from_ts: filters.historicalFromTs, to_ts: filters.historicalToTs }
+        : undefined;
+    const logs = useLogPolling(filters.serverFilters, auth.handle403, historicalParams);
 
     // Step 1: Hide OPTIONS unless explicitly selected
     const optionsFiltered = useMemo(() => {
@@ -202,6 +207,8 @@ const HealthMonitorPage: React.FC = () => {
                     entryCount={filteredEntries.length}
                     isLive={logs.isLive}
                     isLoading={logs.isLoading}
+                    source={logs.source}
+                    isHistoricalMode={filters.isHistoricalMode}
                     onSearchChange={filters.setSearch}
                     onEventChange={filters.setEvent}
                     onMethodChange={filters.setMethod}
@@ -209,6 +216,8 @@ const HealthMonitorPage: React.FC = () => {
                     onToTsChange={filters.setToTs}
                     onToggleLive={logs.toggleLive}
                     onClear={logs.clearEntries}
+                    onEnterHistorical={filters.enterHistoricalMode}
+                    onExitHistorical={filters.exitHistoricalMode}
                 />
 
                 {/* DB Diagnostics only shown in non-production environments */}

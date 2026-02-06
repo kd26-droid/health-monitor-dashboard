@@ -7,6 +7,8 @@ import {
     Button,
     Typography,
     InputAdornment,
+    Chip,
+    Tooltip,
 } from '@mui/material';
 import {
     TEventType,
@@ -26,6 +28,8 @@ interface ToolbarProps {
     entryCount: number;
     isLive: boolean;
     isLoading: boolean;
+    source: 'buffer' | 'database';
+    isHistoricalMode: boolean;
     onSearchChange: (value: string) => void;
     onEventChange: (value: TEventType | '') => void;
     onMethodChange: (value: THttpMethod | '') => void;
@@ -33,6 +37,8 @@ interface ToolbarProps {
     onToTsChange: (value: string) => void;
     onToggleLive: () => void;
     onClear: () => void;
+    onEnterHistorical: (from: string, to: string) => void;
+    onExitHistorical: () => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -44,6 +50,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
     entryCount,
     isLive,
     isLoading,
+    source,
+    isHistoricalMode,
     onSearchChange,
     onEventChange,
     onMethodChange,
@@ -51,19 +59,37 @@ const Toolbar: React.FC<ToolbarProps> = ({
     onToTsChange,
     onToggleLive,
     onClear,
+    onEnterHistorical,
+    onExitHistorical,
 }) => {
+    const canQueryHistorical = fromTs && !isHistoricalMode;
+
+    const handleQueryHistorical = () => {
+        if (fromTs) {
+            onEnterHistorical(fromTs, toTs);
+        }
+    };
+
+    const handleBackToLive = () => {
+        onFromTsChange('');
+        onToTsChange('');
+        onExitHistorical();
+    };
+
     return (
         <Box
             sx={{
                 position: 'sticky',
                 top: 48,
                 zIndex: 90,
-                height: 56,
+                minHeight: 56,
                 backgroundColor: '#FFFFFF',
                 borderBottom: '1px solid #E5E7EB',
                 display: 'flex',
                 alignItems: 'center',
+                flexWrap: 'wrap',
                 px: 3,
+                py: 1,
                 gap: 1.5,
                 flexShrink: 0,
             }}
@@ -140,6 +166,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     backgroundColor: '#FFFFFF',
                 }}
                 title="From"
+                disabled={isHistoricalMode}
             />
 
             {/* To timestamp */}
@@ -157,10 +184,57 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     backgroundColor: '#FFFFFF',
                 }}
                 title="To"
+                disabled={isHistoricalMode}
             />
+
+            {/* Query Historical button */}
+            {canQueryHistorical && (
+                <Button
+                    size="small"
+                    variant="contained"
+                    onClick={handleQueryHistorical}
+                    sx={{
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        fontSize: '0.8rem',
+                        height: 32,
+                        backgroundColor: '#6366F1',
+                        '&:hover': { backgroundColor: '#4F46E5' },
+                    }}
+                >
+                    Query History
+                </Button>
+            )}
 
             {/* Spacer */}
             <Box sx={{ flex: 1 }} />
+
+            {/* Mode indicator */}
+            {isHistoricalMode ? (
+                <Tooltip title="Viewing historical data from database. Only errors, slow requests, N+1, and deadlocks are stored." arrow>
+                    <Chip
+                        label="HISTORICAL"
+                        size="small"
+                        sx={{
+                            backgroundColor: '#EDE9FE',
+                            color: '#6D28D9',
+                            fontWeight: 700,
+                            fontSize: '0.7rem',
+                        }}
+                    />
+                </Tooltip>
+            ) : (
+                <Chip
+                    label={source === 'buffer' ? 'LIVE' : 'DB'}
+                    size="small"
+                    sx={{
+                        backgroundColor: source === 'buffer' ? '#D1FAE5' : '#EDE9FE',
+                        color: source === 'buffer' ? '#065F46' : '#6D28D9',
+                        fontWeight: 600,
+                        fontSize: '0.7rem',
+                    }}
+                />
+            )}
 
             {/* Entry count */}
             <Typography
@@ -170,45 +244,64 @@ const Toolbar: React.FC<ToolbarProps> = ({
                 {entryCount.toLocaleString()} entries
             </Typography>
 
-            {/* LIVE / PAUSED */}
-            <Button
-                size="small"
-                variant="contained"
-                onClick={onToggleLive}
-                sx={{
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    fontSize: '0.8rem',
-                    minWidth: 80,
-                    height: 32,
-                    backgroundColor: isLive ? '#10B981' : '#F59E0B',
-                    '&:hover': {
-                        backgroundColor: isLive ? '#059669' : '#D97706',
-                    },
-                }}
-            >
-                {isLive ? (
-                    <>
-                        <Box
-                            sx={{
-                                width: 6,
-                                height: 6,
-                                borderRadius: '50%',
-                                backgroundColor: '#FFFFFF',
-                                mr: 0.75,
-                                animation: 'pulse 1.5s infinite',
-                                '@keyframes pulse': {
-                                    '0%, 100%': { opacity: 1 },
-                                    '50%': { opacity: 0.4 },
-                                },
-                            }}
-                        />
-                        LIVE
-                    </>
-                ) : (
-                    'PAUSED'
-                )}
-            </Button>
+            {/* LIVE / PAUSED / Back to Live */}
+            {isHistoricalMode ? (
+                <Button
+                    size="small"
+                    variant="contained"
+                    onClick={handleBackToLive}
+                    sx={{
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        fontSize: '0.8rem',
+                        minWidth: 100,
+                        height: 32,
+                        backgroundColor: '#10B981',
+                        '&:hover': { backgroundColor: '#059669' },
+                    }}
+                >
+                    Back to Live
+                </Button>
+            ) : (
+                <Button
+                    size="small"
+                    variant="contained"
+                    onClick={onToggleLive}
+                    sx={{
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        fontSize: '0.8rem',
+                        minWidth: 80,
+                        height: 32,
+                        backgroundColor: isLive ? '#10B981' : '#F59E0B',
+                        '&:hover': {
+                            backgroundColor: isLive ? '#059669' : '#D97706',
+                        },
+                    }}
+                >
+                    {isLive ? (
+                        <>
+                            <Box
+                                sx={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: '50%',
+                                    backgroundColor: '#FFFFFF',
+                                    mr: 0.75,
+                                    animation: 'pulse 1.5s infinite',
+                                    '@keyframes pulse': {
+                                        '0%, 100%': { opacity: 1 },
+                                        '50%': { opacity: 0.4 },
+                                    },
+                                }}
+                            />
+                            LIVE
+                        </>
+                    ) : (
+                        'PAUSED'
+                    )}
+                </Button>
+            )}
 
             {/* Clear */}
             <Button

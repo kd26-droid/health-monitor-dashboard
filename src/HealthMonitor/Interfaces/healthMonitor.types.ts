@@ -37,6 +37,7 @@ export interface ILogEntry {
     task_state?: string;
     retry?: number | null;
     max_retries?: number | null;
+    queue_time_s?: number | null; // NEW: seconds task waited in queue before worker picked it up
 
     // Always present
     elapsed_s: number;
@@ -65,12 +66,19 @@ export interface ILogEntry {
     // Lock timeout fields (only when a lock timeout occurred)
     lock_timeout?: boolean;
     lock_timeout_query?: string;
+
+    // N+1 query detection (NEW) - only present when detected
+    n_plus_1?: Array<{ pattern: string; count: number }> | null;
 }
 
 export interface ILogsResponse {
     entries: ILogEntry[];
-    cursor: number;
-    total_in_buffer: number;
+    source: 'buffer' | 'database';
+    // Live mode (buffer) fields
+    cursor?: number;
+    total_in_buffer?: number;
+    // Historical mode (database) fields
+    count?: number;
 }
 
 // ── Health (from GET /monitor/health/) ──
@@ -84,8 +92,21 @@ export interface IHealthResponse {
         memory_rss_mb: number;
         cpu_percent: number;
         db_connections: number;
+        max_connections?: number;
         blocked_queries?: number;
         deadlocks_total?: number;
+        // NEW optional fields
+        connection_pool_pct?: number;
+        connection_pool_warning?: boolean;
+        cache_hit_ratio?: number;
+        cache_hit_warning?: boolean;
+        long_running_transactions?: number;
+        dependencies?: Record<string, string>; // service name -> "ok" or "error: ..."
+        error_rate?: {
+            total_requests: number;
+            error_count: number;
+            error_pct: number;
+        };
     };
 }
 
@@ -129,7 +150,7 @@ export interface ISeqScanTable {
 }
 
 export interface IDbResponse {
-    connections: { active: number; idle: number };
+    connections: { active: number; idle: number; 'idle in transaction'?: number };
     total_connections: number;
     max_connections: number;
     active_queries: IActiveQuery[];
@@ -138,6 +159,37 @@ export interface IDbResponse {
     blocked_queries?: IBlockedQuery[];
     lock_summary?: ILockSummary[];
     deadlocks_total?: number;
+    // NEW optional fields
+    connection_pool_pct?: number;
+    connection_pool_warning?: boolean;
+    cache_hit_ratio?: number;
+    cache_blocks_hit?: number;
+    cache_blocks_read?: number;
+    cache_hit_warning?: boolean;
+    long_running_transactions?: Array<{
+        pid: string;
+        usename: string;
+        txn_duration_s: string;
+        query_duration_s: string;
+        state: string;
+        wait_event_type: string;
+        query_preview: string;
+    }>;
+    table_bloat?: Array<{
+        relname: string;
+        n_live_tup: string;
+        n_dead_tup: string;
+        dead_pct: string;
+        last_autovacuum: string | null;
+        last_autoanalyze: string | null;
+    }>;
+    low_index_usage?: Array<{
+        relname: string;
+        seq_scan: string;
+        idx_scan: string;
+        n_live_tup: string;
+        idx_usage_pct: string;
+    }>;
 }
 
 // ── System (from GET /monitor/system/) ──
@@ -175,6 +227,26 @@ export interface IServerFilters {
     search: string;
     event: TEventType | '';
     method: THttpMethod | '';
+}
+
+// ── Errors Breakdown (NEW: from GET /monitor/errors/) ──
+
+export interface IErrorsResponse {
+    window_minutes: number;
+    total_entries: number;
+    endpoints: Array<{
+        endpoint: string;
+        total: number;
+        errors: number;
+        error_pct: number;
+        slow: number;
+        n_plus_1_count: number;
+        avg_time_s: number;
+        max_time_s: number;
+        avg_db_queries: number;
+        max_db_queries: number;
+        error_types: Record<string, number>;
+    }>;
 }
 
 // ── Computed Metrics ──

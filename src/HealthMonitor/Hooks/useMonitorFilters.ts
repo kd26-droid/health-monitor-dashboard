@@ -15,6 +15,11 @@ interface UseMonitorFiltersReturn {
     fromTs: string;
     toTs: string;
 
+    // Historical mode (when fromTs is set, query DB instead of live buffer)
+    isHistoricalMode: boolean;
+    historicalFromTs: string; // ISO string for server query
+    historicalToTs: string;   // ISO string for server query
+
     // Server-side filters (triggers re-fetch when changed)
     serverFilters: IServerFilters;
 
@@ -25,6 +30,8 @@ interface UseMonitorFiltersReturn {
     setFromTs: (value: string) => void;
     setToTs: (value: string) => void;
     resetFilters: () => void;
+    enterHistoricalMode: (from: string, to: string) => void;
+    exitHistoricalMode: () => void;
 }
 
 export function useMonitorFilters(): UseMonitorFiltersReturn {
@@ -34,6 +41,11 @@ export function useMonitorFilters(): UseMonitorFiltersReturn {
     const [method, setMethod] = useState<THttpMethod | ''>('');
     const [fromTs, setFromTs] = useState('');
     const [toTs, setToTs] = useState('');
+
+    // Historical mode state
+    const [historicalFromTs, setHistoricalFromTs] = useState('');
+    const [historicalToTs, setHistoricalToTs] = useState('');
+    const isHistoricalMode = historicalFromTs !== '';
 
     // Debounced search updater
     const debouncedSetSearch = useMemo(
@@ -77,7 +89,22 @@ export function useMonitorFilters(): UseMonitorFiltersReturn {
         setMethod('');
         setFromTs('');
         setToTs('');
+        setHistoricalFromTs('');
+        setHistoricalToTs('');
     }, [debouncedSetSearch]);
+
+    const enterHistoricalMode = useCallback((from: string, to: string) => {
+        // Convert datetime-local format to ISO string
+        const fromIso = from ? new Date(from).toISOString() : '';
+        const toIso = to ? new Date(to).toISOString() : new Date().toISOString();
+        setHistoricalFromTs(fromIso);
+        setHistoricalToTs(toIso);
+    }, []);
+
+    const exitHistoricalMode = useCallback(() => {
+        setHistoricalFromTs('');
+        setHistoricalToTs('');
+    }, []);
 
     return {
         search,
@@ -85,6 +112,9 @@ export function useMonitorFilters(): UseMonitorFiltersReturn {
         method,
         fromTs,
         toTs,
+        isHistoricalMode,
+        historicalFromTs,
+        historicalToTs,
         serverFilters,
         setSearch,
         setEvent,
@@ -92,5 +122,7 @@ export function useMonitorFilters(): UseMonitorFiltersReturn {
         setFromTs,
         setToTs,
         resetFilters,
+        enterHistoricalMode,
+        exitHistoricalMode,
     };
 }

@@ -18,13 +18,20 @@ interface UseLogPollingReturn {
     isLoading: boolean;
     totalInBuffer: number;
     newEntrySeqs: Set<number>;
+    source: 'buffer' | 'database';
     toggleLive: () => void;
     clearEntries: () => void;
 }
 
+interface HistoricalParams {
+    from_ts: string;
+    to_ts: string;
+}
+
 export function useLogPolling(
     serverFilters: IServerFilters,
-    on403: () => void
+    on403: () => void,
+    historicalParams?: HistoricalParams
 ): UseLogPollingReturn {
     const [entries, setEntries] = useState<ILogEntry[]>([]);
     const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -32,6 +39,9 @@ export function useLogPolling(
     const [isLoading, setIsLoading] = useState(false);
     const [totalInBuffer, setTotalInBuffer] = useState(0);
     const [newEntrySeqs, setNewEntrySeqs] = useState<Set<number>>(new Set());
+    const [source, setSource] = useState<'buffer' | 'database'>('buffer');
+
+    const isHistoricalMode = !!(historicalParams?.from_ts);
 
     const cursorRef = useRef(0);
     const generationRef = useRef(0);
@@ -39,9 +49,11 @@ export function useLogPolling(
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // ── Core fetch function ──
+    // ── Core fetch function for LIVE mode ──
     const pollOnce = useCallback(
         async (generation: number, resetCursor: boolean) => {
+            if (isHistoricalMode) return; // Don't poll in historical mode
+
             try {
                 const since = resetCursor ? 0 : cursorRef.current;
 
@@ -58,8 +70,9 @@ export function useLogPolling(
                 if (generation !== generationRef.current) return;
 
                 const newEntries = data.entries;
-                cursorRef.current = data.cursor;
-                setTotalInBuffer(data.total_in_buffer);
+                cursorRef.current = data.cursor ?? 0;
+                setTotalInBuffer(data.total_in_buffer ?? 0);
+                setSource(data.source || 'buffer');
 
                 if (resetCursor) {
                     // Full replace on filter change
@@ -104,28 +117,75 @@ export function useLogPolling(
                 });
             }
         },
-        [serverFilters, on403]
+        [serverFilters, on403, isHistoricalMode]
     );
 
-    // ── React to filter changes (generation counter pattern) ──
+    // ── Fetch function for HISTORICAL mode ──
+    const fetchHistorical = useCallback(
+        async (generation: number) => {
+            if (!historicalParams?.from_ts) return;
+
+            try {
+                setIsLoading(true);
+
+                const data = await fetchLogs({
+                    from_ts: historicalParams.from_ts,
+                    to_ts: historicalParams.to_ts || undefined,
+                    limit: 500,
+                    event: serverFilters.event || undefined,
+                    method: serverFilters.method || undefined,
+                    search: serverFilters.search || undefined,
+                });
+
+                if (!mountedRef.current) return;
+                if (generation !== generationRef.current) return;
+
+                setEntries(data.entries);
+                setSource(data.source || 'database');
+                setTotalInBuffer(data.count ?? data.entries.length);
+                setIsFirstLoad(false);
+                setIsLoading(false);
+            } catch (err: any) {
+                if (!mountedRef.current) return;
+                if (generation !== generationRef.current) return;
+
+                if (err?.response?.status === 403) {
+                    on403();
+                    return;
+                }
+
+                setIsLoading(false);
+                toast.error('Failed to fetch historical logs.', {
+                    toastId: 'historical-fetch-error',
+                    autoClose: 3000,
+                });
+            }
+        },
+        [historicalParams, serverFilters, on403]
+    );
+
+    // ── React to mode/filter changes ──
     useEffect(() => {
         generationRef.current += 1;
         const gen = generationRef.current;
         cursorRef.current = 0;
         setIsLoading(true);
 
-        // Fetch immediately with new filters (don't clear entries yet)
-        pollOnce(gen, true);
-    }, [serverFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+        if (isHistoricalMode) {
+            fetchHistorical(gen);
+        } else {
+            pollOnce(gen, true);
+        }
+    }, [serverFilters, historicalParams?.from_ts, historicalParams?.to_ts]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // ── Periodic polling ──
+    // ── Periodic polling (only in live mode) ──
     useEffect(() => {
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
         }
 
-        if (isLive) {
+        if (isLive && !isHistoricalMode) {
             intervalRef.current = setInterval(() => {
                 const gen = generationRef.current;
                 pollOnce(gen, false);
@@ -138,7 +198,7 @@ export function useLogPolling(
                 intervalRef.current = null;
             }
         };
-    }, [isLive, pollOnce]);
+    }, [isLive, isHistoricalMode, pollOnce]);
 
     // ── Cleanup on unmount ──
     useEffect(() => {
@@ -167,10 +227,11 @@ export function useLogPolling(
     return {
         entries,
         isFirstLoad,
-        isLive,
+        isLive: isLive && !isHistoricalMode, // Force false in historical mode
         isLoading,
         totalInBuffer,
         newEntrySeqs,
+        source,
         toggleLive,
         clearEntries,
     };
