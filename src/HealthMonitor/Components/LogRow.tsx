@@ -72,6 +72,8 @@ const LogRow: React.FC<LogRowProps> = ({ entry, isNew, isExpanded, onClick }) =>
                     event={entry.event}
                     deadlock={entry.deadlock}
                     lockTimeout={entry.lock_timeout}
+                    hasNPlusOne={!!(entry.n_plus_1 && entry.n_plus_1.length > 0)}
+                    queueTimeS={entry.queue_time_s}
                 />
             </Cell>
 
