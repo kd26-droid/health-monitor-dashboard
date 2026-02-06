@@ -15,6 +15,7 @@ import LogTable from '../Components/LogTable';
 import TokenPrompt from '../Components/TokenPrompt';
 import EmptyState from '../Components/EmptyState';
 import DbDiagnosticsPanel from '../Components/DbDiagnosticsPanel';
+import ErrorBreakdownPanel from '../Components/ErrorBreakdownPanel';
 import '../styles/healthMonitor.scss';
 
 // ── Helpers ──
@@ -225,6 +226,9 @@ const HealthMonitorPage: React.FC = () => {
                     process.env.REACT_APP_ENV !== 'newdbtest1' && (
                         <DbDiagnosticsPanel dbData={health.dbData} />
                     )}
+
+                {/* Error Breakdown Panel */}
+                <ErrorBreakdownPanel isConnected={health.isConnected} />
 
                 {/* Log table takes remaining space */}
                 <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>

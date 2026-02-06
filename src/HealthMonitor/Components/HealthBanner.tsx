@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Tooltip } from '@mui/material';
 import {
     IHealthResponse,
     IDbResponse,
@@ -28,6 +28,7 @@ const HealthBanner: React.FC<HealthBannerProps> = ({
     isConnected,
 }) => {
     const status = healthData?.status;
+    const checks = healthData?.checks;
     const dotColor = status
         ? STATUS_DOT_COLORS[status] || '#8E8E93'
         : '#8E8E93';
@@ -38,17 +39,25 @@ const HealthBanner: React.FC<HealthBannerProps> = ({
         : 'DISCONNECTED';
 
     const dbConns = dbData
-        ? `${dbData.total_connections} / ${dbData.max_connections}`
+        ? `${dbData.total_connections}/${dbData.max_connections}`
         : '--';
-    const blockedQueries = healthData?.checks?.blocked_queries ?? null;
-    const deadlocksTotal = healthData?.checks?.deadlocks_total ?? null;
+    const blockedQueries = checks?.blocked_queries ?? null;
+    const deadlocksTotal = checks?.deadlocks_total ?? null;
     const ram = systemData
-        ? `${systemData.system.ram_used_percent.toFixed(1)}%`
+        ? `${systemData.system.ram_used_percent.toFixed(0)}%`
         : '--';
     const cpu = systemData
-        ? `${systemData.system.cpu_percent.toFixed(1)}%`
+        ? `${systemData.system.cpu_percent.toFixed(0)}%`
         : '--';
-    const dbSize = dbData?.database_size || '--';
+
+    // New optional fields
+    const poolPct = checks?.connection_pool_pct ?? dbData?.connection_pool_pct;
+    const cacheHit = checks?.cache_hit_ratio ?? dbData?.cache_hit_ratio;
+    const longTxns = checks?.long_running_transactions ??
+        (dbData?.long_running_transactions?.length ?? null);
+    const errorRate = checks?.error_rate;
+    const deps = checks?.dependencies;
+
     const updated = lastUpdated
         ? lastUpdated.toLocaleTimeString('en-US', {
               hour12: true,
@@ -57,6 +66,14 @@ const HealthBanner: React.FC<HealthBannerProps> = ({
               second: '2-digit',
           })
         : '--';
+
+    // Color helpers
+    const getPoolColor = (pct: number) => pct > 80 ? '#FCA5A5' : pct > 60 ? '#FCD34D' : undefined;
+    const getCacheColor = (pct: number) => pct < 95 ? '#FCA5A5' : pct < 99 ? '#FCD34D' : undefined;
+    const getErrorColor = (pct: number) => pct > 5 ? '#FCA5A5' : pct > 1 ? '#FCD34D' : undefined;
+
+    // Check for dependency errors
+    const depErrors = deps ? Object.entries(deps).filter(([_, v]) => v !== 'ok') : [];
 
     return (
         <Box
@@ -82,49 +99,136 @@ const HealthBanner: React.FC<HealthBannerProps> = ({
                     borderRadius: '50%',
                     backgroundColor: dotColor,
                     flexShrink: 0,
-                    boxShadow: status
-                        ? `0 0 6px ${dotColor}`
-                        : 'none',
+                    boxShadow: status ? `0 0 6px ${dotColor}` : 'none',
                 }}
             />
 
-            <Typography
-                variant="body2"
-                sx={{ fontWeight: 700, fontSize: '0.8rem', mr: 1 }}
-            >
+            <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.8rem', mr: 1 }}>
                 {statusLabel}
             </Typography>
 
             <Separator />
 
-            <Stat
-                label="DB"
-                value={
-                    blockedQueries != null && blockedQueries > 0
-                        ? `${dbConns} conn, ${blockedQueries} blocked`
-                        : `${dbConns} connections`
-                }
-                alert={blockedQueries != null && blockedQueries > 0}
-            />
-            <Separator />
-            <Stat
-                label="Deadlocks"
-                value={deadlocksTotal != null ? String(deadlocksTotal) : '--'}
-                alert={deadlocksTotal != null && deadlocksTotal > 0}
-            />
-            <Separator />
+            {/* Connection Pool % (if available) */}
+            {poolPct != null && (
+                <>
+                    <Tooltip title="Active connections vs max. Red >80%, yellow >60%." arrow>
+                        <span>
+                            <Stat
+                                label="Pool"
+                                value={`${poolPct.toFixed(0)}%`}
+                                color={getPoolColor(poolPct)}
+                                alert={poolPct > 80}
+                            />
+                        </span>
+                    </Tooltip>
+                    <Separator />
+                </>
+            )}
+
+            {/* DB Connections (fallback if no pool%) */}
+            {poolPct == null && (
+                <>
+                    <Stat
+                        label="DB"
+                        value={blockedQueries != null && blockedQueries > 0
+                            ? `${dbConns}, ${blockedQueries} blocked`
+                            : dbConns}
+                        alert={blockedQueries != null && blockedQueries > 0}
+                    />
+                    <Separator />
+                </>
+            )}
+
+            {/* Cache Hit Ratio (if available) */}
+            {cacheHit != null && (
+                <>
+                    <Tooltip title="PG buffer cache hit %. Red <95%, yellow <99%." arrow>
+                        <span>
+                            <Stat
+                                label="Cache"
+                                value={`${cacheHit.toFixed(1)}%`}
+                                color={getCacheColor(cacheHit)}
+                                alert={cacheHit < 95}
+                            />
+                        </span>
+                    </Tooltip>
+                    <Separator />
+                </>
+            )}
+
+            {/* Long Running Transactions (if available and > 0) */}
+            {longTxns != null && longTxns > 0 && (
+                <>
+                    <Tooltip title="Transactions open >60s. Hold locks, block autovacuum." arrow>
+                        <span>
+                            <Stat label="Long Txns" value={String(longTxns)} alert={true} />
+                        </span>
+                    </Tooltip>
+                    <Separator />
+                </>
+            )}
+
+            {/* Error Rate (if available) */}
+            {errorRate != null && (
+                <>
+                    <Tooltip title={`${errorRate.error_count}/${errorRate.total_requests} requests failed`} arrow>
+                        <span>
+                            <Stat
+                                label="Errors"
+                                value={`${errorRate.error_pct.toFixed(1)}%`}
+                                color={getErrorColor(errorRate.error_pct)}
+                                alert={errorRate.error_pct > 5}
+                            />
+                        </span>
+                    </Tooltip>
+                    <Separator />
+                </>
+            )}
+
+            {/* Deadlocks */}
+            {deadlocksTotal != null && deadlocksTotal > 0 && (
+                <>
+                    <Stat label="Deadlocks" value={String(deadlocksTotal)} alert={true} />
+                    <Separator />
+                </>
+            )}
+
             <Stat label="RAM" value={ram} />
             <Separator />
             <Stat label="CPU" value={cpu} />
-            <Separator />
-            <Stat label="DB Size" value={dbSize} />
+
+            {/* Dependency errors (if any) */}
+            {depErrors.length > 0 && (
+                <>
+                    <Separator />
+                    <Tooltip
+                        title={depErrors.map(([name, status]) => `${name}: ${status}`).join('\n')}
+                        arrow
+                    >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography variant="body2" sx={{ fontSize: '0.75rem', opacity: 0.6 }}>
+                                Deps:
+                            </Typography>
+                            {depErrors.map(([name]) => (
+                                <Box
+                                    key={name}
+                                    sx={{
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: '50%',
+                                        backgroundColor: '#FF3B30',
+                                    }}
+                                />
+                            ))}
+                        </Box>
+                    </Tooltip>
+                </>
+            )}
 
             <Box sx={{ flex: 1 }} />
 
-            <Typography
-                variant="caption"
-                sx={{ opacity: 0.6, fontSize: '0.75rem' }}
-            >
+            <Typography variant="caption" sx={{ opacity: 0.6, fontSize: '0.75rem' }}>
                 Updated {updated}
             </Typography>
         </Box>
@@ -142,17 +246,18 @@ const Separator: React.FC = () => (
     />
 );
 
-const Stat: React.FC<{ label: string; value: string; alert?: boolean }> = ({
+const Stat: React.FC<{ label: string; value: string; alert?: boolean; color?: string }> = ({
     label,
     value,
     alert,
+    color,
 }) => (
     <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
         <span style={{ opacity: 0.6 }}>{label}:</span>{' '}
         <span
             style={{
                 fontWeight: 600,
-                color: alert ? '#FCA5A5' : 'inherit',
+                color: alert ? '#FCA5A5' : color || 'inherit',
             }}
         >
             {value}

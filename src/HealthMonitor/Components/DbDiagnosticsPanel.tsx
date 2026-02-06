@@ -14,7 +14,11 @@ const DbDiagnosticsPanel: React.FC<DbDiagnosticsPanelProps> = ({ dbData }) => {
     const blockedQueries = dbData.blocked_queries || [];
     const lockSummary = dbData.lock_summary || [];
     const deadlocksTotal = dbData.deadlocks_total ?? 0;
-    const hasIssues = blockedQueries.length > 0 || deadlocksTotal > 0;
+    const longRunningTxns = dbData.long_running_transactions || [];
+    const tableBloat = dbData.table_bloat || [];
+    const lowIndexUsage = dbData.low_index_usage || [];
+
+    const hasIssues = blockedQueries.length > 0 || deadlocksTotal > 0 || longRunningTxns.length > 0;
 
     return (
         <Box
@@ -70,7 +74,9 @@ const DbDiagnosticsPanel: React.FC<DbDiagnosticsPanelProps> = ({ dbData }) => {
                 )}
                 <Box sx={{ flex: 1 }} />
                 <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-                    {blockedQueries.length} blocked &bull; {deadlocksTotal} deadlocks total
+                    {blockedQueries.length} blocked &bull; {deadlocksTotal} deadlocks
+                    {longRunningTxns.length > 0 && ` \u2022 ${longRunningTxns.length} long txns`}
+                    {tableBloat.length > 0 && ` \u2022 ${tableBloat.length} bloated`}
                 </Typography>
             </Box>
 
@@ -221,6 +227,203 @@ const DbDiagnosticsPanel: React.FC<DbDiagnosticsPanelProps> = ({ dbData }) => {
                             {deadlocksTotal}
                         </strong>
                     </Typography>
+
+                    {/* Long Running Transactions */}
+                    {longRunningTxns.length > 0 && (
+                        <>
+                            <SectionTitle>Long Running Transactions (&gt;60s)</SectionTitle>
+                            <Box
+                                sx={{
+                                    backgroundColor: '#FEF2F2',
+                                    border: '1px solid #FECACA',
+                                    borderRadius: 1,
+                                    p: 1.5,
+                                    mb: 1,
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ fontSize: '0.78rem', color: '#991B1B', mb: 1 }}>
+                                    {longRunningTxns.length} transaction(s) open &gt;60 seconds. These hold locks and block autovacuum.
+                                </Typography>
+                                {longRunningTxns.map((txn, i) => {
+                                    const txnSeconds = parseFloat(txn.txn_duration_s);
+                                    const isVeryLong = txnSeconds > 300;
+                                    return (
+                                        <Box
+                                            key={i}
+                                            sx={{
+                                                border: '1px solid #E5E7EB',
+                                                borderRadius: 1,
+                                                p: 1.5,
+                                                mb: 1,
+                                                backgroundColor: isVeryLong ? '#FEE2E2' : '#FFFFFF',
+                                            }}
+                                        >
+                                            <Typography variant="body2" sx={{ fontSize: '0.78rem' }}>
+                                                <strong>PID {txn.pid}</strong> ({txn.usename}) &mdash;{' '}
+                                                <span style={{ color: isVeryLong ? '#DC2626' : '#D97706', fontWeight: 600 }}>
+                                                    {txnSeconds.toFixed(1)}s
+                                                </span>{' '}
+                                                transaction, state: <code>{txn.state}</code>
+                                                {txn.wait_event_type && txn.wait_event_type !== 'None' && (
+                                                    <>, waiting: {txn.wait_event_type}</>
+                                                )}
+                                            </Typography>
+                                            {txn.query_preview && (
+                                                <Box
+                                                    component="pre"
+                                                    sx={{
+                                                        backgroundColor: '#1F2937',
+                                                        color: '#E5E7EB',
+                                                        p: 1,
+                                                        borderRadius: 0.5,
+                                                        fontSize: '0.72rem',
+                                                        fontFamily: 'monospace',
+                                                        whiteSpace: 'pre-wrap',
+                                                        wordBreak: 'break-all',
+                                                        mt: 0.5,
+                                                        maxHeight: 60,
+                                                        overflow: 'auto',
+                                                    }}
+                                                >
+                                                    {txn.query_preview}
+                                                </Box>
+                                            )}
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        </>
+                    )}
+
+                    {/* Table Bloat */}
+                    {tableBloat.length > 0 && (
+                        <>
+                            <SectionTitle>Table Bloat (Dead Tuples)</SectionTitle>
+                            <Box
+                                sx={{
+                                    backgroundColor: '#FFFBEB',
+                                    border: '1px solid #FDE68A',
+                                    borderRadius: 1,
+                                    p: 1.5,
+                                    mb: 1,
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ fontSize: '0.78rem', color: '#92400E', mb: 1 }}>
+                                    Tables with &gt;10% dead tuples. Consider running VACUUM ANALYZE.
+                                </Typography>
+                                <Box
+                                    component="table"
+                                    sx={{
+                                        width: '100%',
+                                        borderCollapse: 'collapse',
+                                        fontSize: '0.78rem',
+                                    }}
+                                >
+                                    <thead>
+                                        <tr>
+                                            <ThCell>Table</ThCell>
+                                            <ThCell>Live</ThCell>
+                                            <ThCell>Dead</ThCell>
+                                            <ThCell>Dead %</ThCell>
+                                            <ThCell>Last Autovacuum</ThCell>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {tableBloat.map((tb, i) => {
+                                            const deadPct = parseFloat(tb.dead_pct);
+                                            return (
+                                                <tr key={i}>
+                                                    <TdCell>
+                                                        <code style={{ fontSize: '0.72rem' }}>{tb.relname}</code>
+                                                    </TdCell>
+                                                    <TdCell>{tb.n_live_tup}</TdCell>
+                                                    <TdCell>{tb.n_dead_tup}</TdCell>
+                                                    <TdCell>
+                                                        <span
+                                                            style={{
+                                                                color: deadPct > 30 ? '#DC2626' : deadPct > 20 ? '#D97706' : '#059669',
+                                                                fontWeight: 600,
+                                                            }}
+                                                        >
+                                                            {deadPct.toFixed(1)}%
+                                                        </span>
+                                                    </TdCell>
+                                                    <TdCell>
+                                                        {tb.last_autovacuum
+                                                            ? new Date(tb.last_autovacuum).toLocaleString()
+                                                            : <span style={{ color: '#9CA3AF' }}>Never</span>}
+                                                    </TdCell>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </Box>
+                            </Box>
+                        </>
+                    )}
+
+                    {/* Low Index Usage */}
+                    {lowIndexUsage.length > 0 && (
+                        <>
+                            <SectionTitle>Low Index Usage</SectionTitle>
+                            <Box
+                                sx={{
+                                    backgroundColor: '#EFF6FF',
+                                    border: '1px solid #BFDBFE',
+                                    borderRadius: 1,
+                                    p: 1.5,
+                                    mb: 1,
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ fontSize: '0.78rem', color: '#1E40AF', mb: 1 }}>
+                                    Tables with &lt;80% index usage. Consider adding indexes or reviewing queries.
+                                </Typography>
+                                <Box
+                                    component="table"
+                                    sx={{
+                                        width: '100%',
+                                        borderCollapse: 'collapse',
+                                        fontSize: '0.78rem',
+                                    }}
+                                >
+                                    <thead>
+                                        <tr>
+                                            <ThCell>Table</ThCell>
+                                            <ThCell>Seq Scans</ThCell>
+                                            <ThCell>Index Scans</ThCell>
+                                            <ThCell>Rows</ThCell>
+                                            <ThCell>Idx Usage %</ThCell>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {lowIndexUsage.map((liu, i) => {
+                                            const idxPct = parseFloat(liu.idx_usage_pct);
+                                            return (
+                                                <tr key={i}>
+                                                    <TdCell>
+                                                        <code style={{ fontSize: '0.72rem' }}>{liu.relname}</code>
+                                                    </TdCell>
+                                                    <TdCell>{liu.seq_scan}</TdCell>
+                                                    <TdCell>{liu.idx_scan}</TdCell>
+                                                    <TdCell>{liu.n_live_tup}</TdCell>
+                                                    <TdCell>
+                                                        <span
+                                                            style={{
+                                                                color: idxPct < 50 ? '#DC2626' : idxPct < 70 ? '#D97706' : '#059669',
+                                                                fontWeight: 600,
+                                                            }}
+                                                        >
+                                                            {idxPct.toFixed(1)}%
+                                                        </span>
+                                                    </TdCell>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </Box>
+                            </Box>
+                        </>
+                    )}
                 </Box>
             </Collapse>
         </Box>
