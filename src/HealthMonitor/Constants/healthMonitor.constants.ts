@@ -39,13 +39,6 @@ export const METHOD_OPTIONS = [
     { value: 'OPTIONS', label: 'OPTIONS' },
 ] as const;
 
-export const ERROR_WINDOW_OPTIONS = [
-    { value: 5, label: '5 min' },
-    { value: 15, label: '15 min' },
-    { value: 30, label: '30 min' },
-    { value: 60, label: '60 min' },
-] as const;
-
 // ── Colors ──
 
 export const METHOD_COLORS: Record<string, string> = {

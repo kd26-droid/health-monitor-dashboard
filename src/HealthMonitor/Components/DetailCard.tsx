@@ -11,8 +11,6 @@ import TaskArguments from './DetailSections/TaskArguments';
 import RequestPayload from './DetailSections/RequestPayload';
 import DeadlockDetails from './DetailSections/DeadlockDetails';
 import LockTimeoutDetails from './DetailSections/LockTimeoutDetails';
-import NPlusOneQueries from './DetailSections/NPlusOneQueries';
-import QueueTime from './DetailSections/QueueTime';
 
 interface DetailCardProps {
     entry: ILogEntry;
@@ -25,8 +23,6 @@ const DetailCard: React.FC<DetailCardProps> = ({ entry, maxConnections }) => {
     const hasTaskArgs = isTask && !!entry.task_args;
     const hasResponseSize = entry.response_bytes != null;
     const hasRequestPayload = !!entry.request_payload;
-    const hasNPlusOne = entry.n_plus_1 && entry.n_plus_1.length > 0;
-    const hasQueueTime = isTask && entry.queue_time_s != null;
 
     return (
         <Box
@@ -124,16 +120,6 @@ const DetailCard: React.FC<DetailCardProps> = ({ entry, maxConnections }) => {
             </Box>
 
             {/* Full-width sections */}
-            {hasQueueTime && (
-                <Box sx={{ mt: 2.5 }}>
-                    <QueueTime queueTimeS={entry.queue_time_s!} />
-                </Box>
-            )}
-            {hasNPlusOne && (
-                <Box sx={{ mt: 2.5 }}>
-                    <NPlusOneQueries patterns={entry.n_plus_1} />
-                </Box>
-            )}
             {entry.deadlock && (
                 <Box sx={{ mt: 2.5 }}>
                     <DeadlockDetails entry={entry} />

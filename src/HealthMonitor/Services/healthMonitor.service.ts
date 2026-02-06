@@ -4,7 +4,6 @@ import {
     IHealthResponse,
     IDbResponse,
     ISystemResponse,
-    IErrorsResponse,
     TEventType,
     THttpMethod,
 } from '../Interfaces/healthMonitor.types';
@@ -76,13 +75,6 @@ export async function fetchDb(): Promise<IDbResponse> {
 
 export async function fetchSystem(): Promise<ISystemResponse> {
     const res = await monitorApi.get<ISystemResponse>('/monitor/system/');
-    return res.data;
-}
-
-export async function fetchErrors(minutes: number = 5): Promise<IErrorsResponse> {
-    const res = await monitorApi.get<IErrorsResponse>('/monitor/errors/', {
-        params: { minutes },
-    });
     return res.data;
 }
 
