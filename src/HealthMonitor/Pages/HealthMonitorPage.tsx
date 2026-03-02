@@ -76,28 +76,9 @@ function computeMetrics(entries: ILogEntry[]): IMetrics {
     };
 }
 
-// ── Min-width check ──
-
-function useMinWidthCheck(minWidth: number): boolean {
-    const [isTooNarrow, setIsTooNarrow] = React.useState(
-        window.innerWidth < minWidth
-    );
-
-    React.useEffect(() => {
-        const handleResize = () => {
-            setIsTooNarrow(window.innerWidth < minWidth);
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, [minWidth]);
-
-    return isTooNarrow;
-}
-
 // ── Main Page ──
 
 const HealthMonitorPage: React.FC = () => {
-    const isTooNarrow = useMinWidthCheck(1024);
     const auth = useMonitorAuth();
     const filters = useMonitorFilters();
     const health = useHealthPolling(auth.handle403);
@@ -150,28 +131,6 @@ const HealthMonitorPage: React.FC = () => {
         () => applyTimestampFilter(searchFiltered, filters.fromTs, filters.toTs),
         [searchFiltered, filters.fromTs, filters.toTs]
     );
-
-    // Min-width message
-    if (isTooNarrow) {
-        return (
-            <Box
-                sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100vh',
-                    backgroundColor: '#F9FAFB',
-                    p: 4,
-                }}
-            >
-                <Typography variant="body1" sx={{ color: 'text.secondary', textAlign: 'center' }}>
-                    This dashboard is designed for screens 1440px or wider.
-                    <br />
-                    Current width: {window.innerWidth}px
-                </Typography>
-            </Box>
-        );
-    }
 
     return (
         <Box
