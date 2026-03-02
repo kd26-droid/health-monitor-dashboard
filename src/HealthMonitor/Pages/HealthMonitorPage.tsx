@@ -1,8 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Box } from '@mui/material';
 import {
     ILogEntry,
     IMetrics,
+    IColumnFilters,
+    EMPTY_COLUMN_FILTERS,
 } from '../Interfaces/healthMonitor.types';
 import { useMonitorAuth } from '../Hooks/useMonitorAuth';
 import { useMonitorFilters } from '../Hooks/useMonitorFilters';
@@ -76,10 +78,52 @@ function computeMetrics(entries: ILogEntry[]): IMetrics {
     };
 }
 
+function applyColumnFilters(entries: ILogEntry[], f: IColumnFilters): ILogEntry[] {
+    const hasAny = Object.values(f).some((v) => v !== '');
+    if (!hasAny) return entries;
+
+    return entries.filter((e) => {
+        if (f.apiTask) {
+            const val = (e.view || e.task || '').toLowerCase();
+            if (!val.includes(f.apiTask.toLowerCase())) return false;
+        }
+        if (f.path) {
+            const val = (e.path || '').toLowerCase();
+            if (!val.includes(f.path.toLowerCase())) return false;
+        }
+        if (f.httpStatus) {
+            if (e.status == null) return false;
+            if (!String(e.status).startsWith(f.httpStatus)) return false;
+        }
+        if (f.minTotalTime) {
+            const min = parseFloat(f.minTotalTime);
+            if (!isNaN(min) && e.elapsed_s < min) return false;
+        }
+        if (f.minDbTime) {
+            const min = parseFloat(f.minDbTime);
+            if (!isNaN(min) && e.db_time_s < min) return false;
+        }
+        if (f.minQueries) {
+            const min = parseInt(f.minQueries, 10);
+            if (!isNaN(min) && e.db_queries < min) return false;
+        }
+        if (f.minMemory) {
+            const min = parseFloat(f.minMemory);
+            if (!isNaN(min) && Math.abs(e.mem_delta_mb) < min) return false;
+        }
+        if (f.minSize) {
+            const min = parseFloat(f.minSize) * 1024; // KB to bytes
+            if (!isNaN(min) && (e.response_bytes || 0) < min) return false;
+        }
+        return true;
+    });
+}
+
 // ── Main Page ──
 
 const HealthMonitorPage: React.FC = () => {
     const auth = useMonitorAuth();
+    const [columnFilters, setColumnFilters] = useState<IColumnFilters>(EMPTY_COLUMN_FILTERS);
     const filters = useMonitorFilters();
     const health = useHealthPolling(auth.handle403);
 
@@ -126,10 +170,16 @@ const HealthMonitorPage: React.FC = () => {
     // Step 3: Compute metrics from OPTIONS-filtered + search-filtered entries (before timestamp filter)
     const metrics = useMemo(() => computeMetrics(searchFiltered), [searchFiltered]);
 
-    // Step 4: Apply timestamp filter for display
+    // Step 4: Apply column filters
+    const columnFiltered = useMemo(
+        () => applyColumnFilters(searchFiltered, columnFilters),
+        [searchFiltered, columnFilters]
+    );
+
+    // Step 5: Apply timestamp filter for display
     const filteredEntries = useMemo(
-        () => applyTimestampFilter(searchFiltered, filters.fromTs, filters.toTs),
-        [searchFiltered, filters.fromTs, filters.toTs]
+        () => applyTimestampFilter(columnFiltered, filters.fromTs, filters.toTs),
+        [columnFiltered, filters.fromTs, filters.toTs]
     );
 
     return (
@@ -206,6 +256,8 @@ const HealthMonitorPage: React.FC = () => {
                             isLoading={logs.isLoading}
                             isFirstLoad={logs.isFirstLoad}
                             maxConnections={health.dbData?.max_connections}
+                            columnFilters={columnFilters}
+                            onColumnFiltersChange={setColumnFilters}
                         />
                     )}
                 </Box>

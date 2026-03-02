@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, IconButton, Tooltip } from '@mui/material';
 import { Virtuoso } from 'react-virtuoso';
-import { ILogEntry } from '../Interfaces/healthMonitor.types';
+import { ILogEntry, IColumnFilters } from '../Interfaces/healthMonitor.types';
 import { COLUMN_WIDTHS } from '../Constants/healthMonitor.constants';
 import LogRow from './LogRow';
 import DetailCard from './DetailCard';
@@ -13,21 +13,34 @@ interface LogTableProps {
     isLoading: boolean;
     isFirstLoad: boolean;
     maxConnections?: number;
+    columnFilters: IColumnFilters;
+    onColumnFiltersChange: (filters: IColumnFilters) => void;
 }
 
 const COLUMNS = [
-    { label: 'Time', width: COLUMN_WIDTHS.time },
-    { label: 'Status', width: COLUMN_WIDTHS.status },
-    { label: 'API / Task', width: COLUMN_WIDTHS.apiTask },
-    { label: 'Method', width: COLUMN_WIDTHS.method },
-    { label: 'Path', width: COLUMN_WIDTHS.path },
-    { label: 'HTTP', width: COLUMN_WIDTHS.http },
-    { label: 'Total Time', width: COLUMN_WIDTHS.totalTime },
-    { label: 'DB Time', width: COLUMN_WIDTHS.dbTime },
-    { label: 'Queries', width: COLUMN_WIDTHS.queries },
-    { label: 'Memory', width: COLUMN_WIDTHS.memory },
-    { label: 'Size', width: COLUMN_WIDTHS.size },
+    { label: 'Time', width: COLUMN_WIDTHS.time, filterKey: null },
+    { label: 'Status', width: COLUMN_WIDTHS.status, filterKey: null },
+    { label: 'API / Task', width: COLUMN_WIDTHS.apiTask, filterKey: 'apiTask' as const },
+    { label: 'Method', width: COLUMN_WIDTHS.method, filterKey: null },
+    { label: 'Path', width: COLUMN_WIDTHS.path, filterKey: 'path' as const },
+    { label: 'HTTP', width: COLUMN_WIDTHS.http, filterKey: 'httpStatus' as const },
+    { label: 'Total Time', width: COLUMN_WIDTHS.totalTime, filterKey: 'minTotalTime' as const },
+    { label: 'DB Time', width: COLUMN_WIDTHS.dbTime, filterKey: 'minDbTime' as const },
+    { label: 'Queries', width: COLUMN_WIDTHS.queries, filterKey: 'minQueries' as const },
+    { label: 'Memory', width: COLUMN_WIDTHS.memory, filterKey: 'minMemory' as const },
+    { label: 'Size', width: COLUMN_WIDTHS.size, filterKey: 'minSize' as const },
 ];
+
+const FILTER_PLACEHOLDERS: Record<string, string> = {
+    apiTask: 'contains...',
+    path: 'contains...',
+    httpStatus: 'e.g. 5',
+    minTotalTime: '>=  sec',
+    minDbTime: '>=  sec',
+    minQueries: '>=',
+    minMemory: '>=  MB',
+    minSize: '>=  KB',
+};
 
 const LogTable: React.FC<LogTableProps> = ({
     entries,
@@ -35,18 +48,30 @@ const LogTable: React.FC<LogTableProps> = ({
     isLoading,
     isFirstLoad,
     maxConnections,
+    columnFilters,
+    onColumnFiltersChange,
 }) => {
     const [expandedSeq, setExpandedSeq] = useState<number | null>(null);
+    const [showFilters, setShowFilters] = useState(false);
 
     const handleRowClick = useCallback((seq: number) => {
         setExpandedSeq((prev) => (prev === seq ? null : seq));
     }, []);
 
+    const handleFilterChange = useCallback(
+        (key: keyof IColumnFilters, value: string) => {
+            onColumnFiltersChange({ ...columnFilters, [key]: value });
+        },
+        [columnFilters, onColumnFiltersChange]
+    );
+
+    const hasActiveFilters = Object.values(columnFilters).some((v) => v !== '');
+
     if (isFirstLoad) {
         return <EmptyState variant="loading" />;
     }
 
-    if (entries.length === 0) {
+    if (entries.length === 0 && !hasActiveFilters) {
         return <EmptyState variant="no-match" />;
     }
 
@@ -60,7 +85,7 @@ const LogTable: React.FC<LogTableProps> = ({
                 position: 'relative',
             }}
         >
-            {/* Loading overlay during filter change */}
+            {/* Loading overlay */}
             {isLoading && (
                 <Box
                     sx={{
@@ -88,10 +113,10 @@ const LogTable: React.FC<LogTableProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     backgroundColor: '#F9FAFB',
-                    borderBottom: '2px solid #E5E7EB',
+                    borderBottom: showFilters ? '1px solid #E5E7EB' : '2px solid #E5E7EB',
                     minHeight: 36,
                     px: 1.5,
-                    pl: '15px', // account for border-left on rows
+                    pl: '15px',
                     flexShrink: 0,
                 }}
             >
@@ -119,28 +144,127 @@ const LogTable: React.FC<LogTableProps> = ({
                         </Typography>
                     </Box>
                 ))}
+                {/* Filter toggle */}
+                <Tooltip title={showFilters ? 'Hide column filters' : 'Show column filters'} arrow>
+                    <IconButton
+                        size="small"
+                        onClick={() => setShowFilters(!showFilters)}
+                        sx={{
+                            ml: 0.5,
+                            p: 0.5,
+                            color: hasActiveFilters ? '#3B82F6' : 'text.secondary',
+                        }}
+                    >
+                        <i className="bi bi-funnel" style={{ fontSize: 13 }} />
+                    </IconButton>
+                </Tooltip>
             </Box>
 
-            {/* Virtualized rows */}
-            <Box sx={{ flex: 1, opacity: isLoading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
-                <Virtuoso
-                    style={{ height: '100%' }}
-                    data={entries}
-                    itemContent={(index, entry) => (
-                        <div key={entry._seq}>
-                            <LogRow
-                                entry={entry}
-                                isNew={newEntrySeqs.has(entry._seq)}
-                                isExpanded={expandedSeq === entry._seq}
-                                onClick={() => handleRowClick(entry._seq)}
-                            />
-                            {expandedSeq === entry._seq && (
-                                <DetailCard entry={entry} maxConnections={maxConnections} />
-                            )}
-                        </div>
+            {/* Filter row */}
+            {showFilters && (
+                <Box
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        backgroundColor: '#F3F4F6',
+                        borderBottom: '2px solid #E5E7EB',
+                        minHeight: 32,
+                        px: 1.5,
+                        pl: '15px',
+                        flexShrink: 0,
+                        gap: 0,
+                    }}
+                >
+                    {COLUMNS.map((col) => (
+                        <Box
+                            key={col.label}
+                            sx={{
+                                width: col.width,
+                                minWidth: col.width,
+                                maxWidth: col.width,
+                                px: 0.5,
+                            }}
+                        >
+                            {col.filterKey ? (
+                                <input
+                                    type="text"
+                                    placeholder={FILTER_PLACEHOLDERS[col.filterKey] || ''}
+                                    value={columnFilters[col.filterKey]}
+                                    onChange={(e) =>
+                                        handleFilterChange(col.filterKey!, e.target.value)
+                                    }
+                                    style={{
+                                        width: '100%',
+                                        height: 24,
+                                        padding: '0 6px',
+                                        border: `1px solid ${
+                                            columnFilters[col.filterKey]
+                                                ? '#3B82F6'
+                                                : '#D1D5DB'
+                                        }`,
+                                        borderRadius: 3,
+                                        fontSize: '0.7rem',
+                                        backgroundColor: columnFilters[col.filterKey]
+                                            ? '#EFF6FF'
+                                            : '#FFFFFF',
+                                        outline: 'none',
+                                        boxSizing: 'border-box',
+                                    }}
+                                />
+                            ) : null}
+                        </Box>
+                    ))}
+                    {/* Clear filters button */}
+                    {hasActiveFilters && (
+                        <Tooltip title="Clear all column filters" arrow>
+                            <IconButton
+                                size="small"
+                                onClick={() =>
+                                    onColumnFiltersChange({
+                                        apiTask: '',
+                                        path: '',
+                                        httpStatus: '',
+                                        minTotalTime: '',
+                                        minDbTime: '',
+                                        minQueries: '',
+                                        minMemory: '',
+                                        minSize: '',
+                                    })
+                                }
+                                sx={{ ml: 0.5, p: 0.5, color: '#DC2626' }}
+                            >
+                                <i className="bi bi-x-circle" style={{ fontSize: 13 }} />
+                            </IconButton>
+                        </Tooltip>
                     )}
-                />
-            </Box>
+                </Box>
+            )}
+
+            {/* Empty state when filters active but no results */}
+            {entries.length === 0 && hasActiveFilters ? (
+                <EmptyState variant="no-match" />
+            ) : (
+                /* Virtualized rows */
+                <Box sx={{ flex: 1, opacity: isLoading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+                    <Virtuoso
+                        style={{ height: '100%' }}
+                        data={entries}
+                        itemContent={(_index, entry) => (
+                            <div key={entry._seq}>
+                                <LogRow
+                                    entry={entry}
+                                    isNew={newEntrySeqs.has(entry._seq)}
+                                    isExpanded={expandedSeq === entry._seq}
+                                    onClick={() => handleRowClick(entry._seq)}
+                                />
+                                {expandedSeq === entry._seq && (
+                                    <DetailCard entry={entry} maxConnections={maxConnections} />
+                                )}
+                            </div>
+                        )}
+                    />
+                </Box>
+            )}
         </Box>
     );
 };

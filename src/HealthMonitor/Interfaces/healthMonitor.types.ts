@@ -249,6 +249,30 @@ export interface IErrorsResponse {
     }>;
 }
 
+// ── Column Filters ──
+
+export interface IColumnFilters {
+    apiTask: string;
+    path: string;
+    httpStatus: string;
+    minTotalTime: string;
+    minDbTime: string;
+    minQueries: string;
+    minMemory: string;
+    minSize: string;
+}
+
+export const EMPTY_COLUMN_FILTERS: IColumnFilters = {
+    apiTask: '',
+    path: '',
+    httpStatus: '',
+    minTotalTime: '',
+    minDbTime: '',
+    minQueries: '',
+    minMemory: '',
+    minSize: '',
+};
+
 // ── Computed Metrics ──
 
 export interface IMetrics {
