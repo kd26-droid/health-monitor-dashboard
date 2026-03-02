@@ -77,15 +77,15 @@ const CARD_DEFS: CardDef[] = [
     {
         title: 'DB Connections',
         getValue: (_, db) =>
-            db ? db.total_connections.toString() : '--',
+            db ? (db.total_connections ?? 0).toString() : '--',
         getSubtitle: (_, db) =>
             db
-                ? `${db.total_connections} of ${db.max_connections} max`
+                ? `${db.total_connections ?? 0} of ${db.max_connections ?? 0} max`
                 : '--',
         getColor: (_, db) =>
-            db
+            db && db.max_connections
                 ? getDbConnectionColor(
-                      db.total_connections,
+                      db.total_connections ?? 0,
                       db.max_connections
                   )
                 : 'default',

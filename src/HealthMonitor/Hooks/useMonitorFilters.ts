@@ -42,9 +42,24 @@ export function useMonitorFilters(): UseMonitorFiltersReturn {
     const [fromTs, setFromTs] = useState('');
     const [toTs, setToTs] = useState('');
 
+    // On Lambda (non-localhost), default to historical mode (last 30 min)
+    // because live buffer is per-container and unreliable
+    const isLambda = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
+
     // Historical mode state
-    const [historicalFromTs, setHistoricalFromTs] = useState('');
-    const [historicalToTs, setHistoricalToTs] = useState('');
+    const [historicalFromTs, setHistoricalFromTs] = useState(() => {
+        if (isLambda) {
+            const from = new Date(Date.now() - 30 * 60 * 1000);
+            return from.toISOString();
+        }
+        return '';
+    });
+    const [historicalToTs, setHistoricalToTs] = useState(() => {
+        if (isLambda) {
+            return new Date().toISOString();
+        }
+        return '';
+    });
     const isHistoricalMode = historicalFromTs !== '';
 
     // Debounced search updater

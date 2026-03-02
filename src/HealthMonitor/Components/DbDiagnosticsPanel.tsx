@@ -90,8 +90,8 @@ const DbDiagnosticsPanel: React.FC<DbDiagnosticsPanelProps> = ({ dbData }) => {
                         </Typography>
                     ) : (
                         blockedQueries.map((bq, i) => {
-                            const waitSeconds = parseFloat(bq.wait_duration_s);
-                            const blockerSeconds = parseFloat(bq.blocker_duration_s);
+                            const waitSeconds = parseFloat(bq.wait_duration_s || '0');
+                            const blockerSeconds = parseFloat(bq.blocker_duration_s || '0');
                             const waitColor =
                                 waitSeconds > 30 ? '#DC2626' : waitSeconds > 5 ? '#D97706' : '#059669';
                             const isIdleInTx = bq.blocker_state === 'idle in transaction';
@@ -245,7 +245,7 @@ const DbDiagnosticsPanel: React.FC<DbDiagnosticsPanelProps> = ({ dbData }) => {
                                     {longRunningTxns.length} transaction(s) open &gt;60 seconds. These hold locks and block autovacuum.
                                 </Typography>
                                 {longRunningTxns.map((txn, i) => {
-                                    const txnSeconds = parseFloat(txn.txn_duration_s);
+                                    const txnSeconds = parseFloat(txn.txn_duration_s || '0');
                                     const isVeryLong = txnSeconds > 300;
                                     return (
                                         <Box

@@ -2,6 +2,7 @@ import React from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import HealthMonitorPage from './HealthMonitor/Pages/HealthMonitorPage';
+import ErrorBoundary from './HealthMonitor/Components/ErrorBoundary';
 
 const theme = createTheme({
     palette: {
@@ -13,7 +14,9 @@ function App() {
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
-            <HealthMonitorPage />
+            <ErrorBoundary>
+                <HealthMonitorPage />
+            </ErrorBoundary>
         </ThemeProvider>
     );
 }

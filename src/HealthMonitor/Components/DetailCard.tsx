@@ -195,7 +195,8 @@ const MetaItem: React.FC<MetaItemProps> = ({ label, value, mono, children }) => 
     </Box>
 );
 
-function truncateId(id: string): string {
+function truncateId(id: string | null | undefined): string {
+    if (!id) return '--';
     if (id.length <= 12) return id;
     return id.substring(0, 8) + '...';
 }

@@ -97,7 +97,7 @@ function useMinWidthCheck(minWidth: number): boolean {
 // ── Main Page ──
 
 const HealthMonitorPage: React.FC = () => {
-    const isTooNarrow = useMinWidthCheck(1440);
+    const isTooNarrow = useMinWidthCheck(1280);
     const auth = useMonitorAuth();
     const filters = useMonitorFilters();
     const health = useHealthPolling(auth.handle403);

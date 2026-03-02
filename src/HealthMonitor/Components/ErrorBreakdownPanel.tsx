@@ -215,9 +215,9 @@ const ErrorBreakdownPanel: React.FC<ErrorBreakdownPanelProps> = ({ isConnected }
                                             </span>
                                         </TdCell>
                                         <TdCell>
-                                            {Object.entries(ep.error_types || {}).length > 0 ? (
+                                            {Object.entries(ep.error_types ?? {}).length > 0 ? (
                                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                                    {Object.entries(ep.error_types).map(([type, count]) => (
+                                                    {Object.entries(ep.error_types ?? {}).map(([type, count]) => (
                                                         <Box
                                                             key={type}
                                                             sx={{
