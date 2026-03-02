@@ -7,6 +7,14 @@ import {
 } from '../Interfaces/healthMonitor.types';
 import { SEARCH_DEBOUNCE_MS } from '../Constants/healthMonitor.constants';
 
+// Convert ISO string to datetime-local input format (YYYY-MM-DDTHH:MM)
+function isoToDatetimeLocal(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 interface UseMonitorFiltersReturn {
     // Raw input values
     search: string;
@@ -39,27 +47,21 @@ export function useMonitorFilters(): UseMonitorFiltersReturn {
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [event, setEvent] = useState<TEventType | ''>('');
     const [method, setMethod] = useState<THttpMethod | ''>('');
-    const [fromTs, setFromTs] = useState('');
-    const [toTs, setToTs] = useState('');
 
     // On Lambda (non-localhost), default to historical mode (last 30 min)
-    // because live buffer is per-container and unreliable
     const isLambda = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
 
-    // Historical mode state
-    const [historicalFromTs, setHistoricalFromTs] = useState(() => {
-        if (isLambda) {
-            const from = new Date(Date.now() - 30 * 60 * 1000);
-            return from.toISOString();
-        }
-        return '';
-    });
-    const [historicalToTs, setHistoricalToTs] = useState(() => {
-        if (isLambda) {
-            return new Date().toISOString();
-        }
-        return '';
-    });
+    // Compute initial date values for Lambda
+    const initialFromIso = isLambda ? new Date(Date.now() - 30 * 60 * 1000).toISOString() : '';
+    const initialToIso = isLambda ? new Date().toISOString() : '';
+
+    // The visible datetime-local inputs — pre-fill on Lambda
+    const [fromTs, setFromTs] = useState(() => isoToDatetimeLocal(initialFromIso));
+    const [toTs, setToTs] = useState(() => isoToDatetimeLocal(initialToIso));
+
+    // Historical mode state (ISO strings sent to server)
+    const [historicalFromTs, setHistoricalFromTs] = useState(initialFromIso);
+    const [historicalToTs, setHistoricalToTs] = useState(initialToIso);
     const isHistoricalMode = historicalFromTs !== '';
 
     // Debounced search updater
