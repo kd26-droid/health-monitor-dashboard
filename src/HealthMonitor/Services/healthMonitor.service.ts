@@ -10,7 +10,13 @@ import {
 } from '../Interfaces/healthMonitor.types';
 import { MONITOR_TOKEN_KEY } from '../Constants/healthMonitor.constants';
 
-// ── Dedicated axios instance for /monitor/ endpoints ──
+// ── Path prefix ──
+// Locally: /monitor/*  (Django direct, no API Gateway)
+// Deployed (via API Gateway): /authentication/monitor/*
+const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+const MONITOR_PREFIX = isLocal ? '/monitor' : '/authentication/monitor';
+
+// ── Dedicated axios instance for monitor endpoints ──
 
 const createMonitorInstance = (): AxiosInstance => {
     const baseURL =
@@ -63,29 +69,29 @@ export async function fetchLogs(
         }
     });
 
-    const res = await monitorApi.get<ILogsResponse>('/monitor/logs/', {
+    const res = await monitorApi.get<ILogsResponse>(`${MONITOR_PREFIX}/logs/`, {
         params: cleanParams,
     });
     return res.data;
 }
 
 export async function fetchHealth(): Promise<IHealthResponse> {
-    const res = await monitorApi.get<IHealthResponse>('/monitor/health/');
+    const res = await monitorApi.get<IHealthResponse>(`${MONITOR_PREFIX}/health/`);
     return res.data;
 }
 
 export async function fetchDb(): Promise<IDbResponse> {
-    const res = await monitorApi.get<IDbResponse>('/monitor/db/');
+    const res = await monitorApi.get<IDbResponse>(`${MONITOR_PREFIX}/db/`);
     return res.data;
 }
 
 export async function fetchSystem(): Promise<ISystemResponse> {
-    const res = await monitorApi.get<ISystemResponse>('/monitor/system/');
+    const res = await monitorApi.get<ISystemResponse>(`${MONITOR_PREFIX}/system/`);
     return res.data;
 }
 
 export async function fetchErrors(minutes: number = 5): Promise<IErrorsResponse> {
-    const res = await monitorApi.get<IErrorsResponse>('/monitor/errors/', {
+    const res = await monitorApi.get<IErrorsResponse>(`${MONITOR_PREFIX}/errors/`, {
         params: { minutes },
     });
     return res.data;
