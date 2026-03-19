@@ -103,11 +103,13 @@ export const SORT_OPTIONS = [
     { value: '-timestamp', label: 'Newest First' },
     { value: 'timestamp', label: 'Oldest First' },
     { value: '-elapsed_s', label: 'Slowest First' },
+    { value: '-db_time_s', label: 'DB Time (↓)' },
     { value: '-db_queries', label: 'Most Queries' },
     { value: '-status_code', label: '5xx First' },
     { value: '-mem_delta', label: 'Memory Growth' },
     { value: '-mem_after', label: 'Highest Memory' },
     { value: '-mem_before', label: 'Memory Before (↓)' },
+    { value: '-response_bytes', label: 'Largest Response' },
 ] as const;
 
 // ── Colors ──

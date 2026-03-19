@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { ILogEntry } from '../../Interfaces/healthMonitor.types';
 import { prettyPrintJson } from '../../Utils/formatters';
+import SqlBlock from '../SqlBlock';
 
 interface RequestPayloadProps {
     entry: ILogEntry;
@@ -26,24 +27,8 @@ const RequestPayload: React.FC<RequestPayloadProps> = ({ entry }) => {
             >
                 Request Payload
             </Typography>
-
-            <Box
-                component="pre"
-                sx={{
-                    backgroundColor: '#1F2937',
-                    color: '#E5E7EB',
-                    p: 1.5,
-                    borderRadius: 1,
-                    fontSize: '0.75rem',
-                    fontFamily: 'monospace',
-                    overflow: 'auto',
-                    maxHeight: 200,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all',
-                    mt: 1,
-                }}
-            >
-                {prettyPrintJson(request_payload)}
+            <Box sx={{ mt: 1 }}>
+                <SqlBlock sql={prettyPrintJson(request_payload)} previewLength={120} />
             </Box>
         </Box>
     );

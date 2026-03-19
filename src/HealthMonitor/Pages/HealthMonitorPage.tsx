@@ -4,6 +4,8 @@ import {
     ILogEntry,
     IMetrics,
     IColumnFilters,
+    IUserInfo,
+    IEnterpriseInfo,
     EMPTY_COLUMN_FILTERS,
 } from '../Interfaces/healthMonitor.types';
 import { useMonitorAuth } from '../Hooks/useMonitorAuth';
@@ -80,7 +82,12 @@ function computeMetrics(entries: ILogEntry[]): IMetrics {
     };
 }
 
-function applyColumnFilters(entries: ILogEntry[], f: IColumnFilters): ILogEntry[] {
+function applyColumnFilters(
+    entries: ILogEntry[],
+    f: IColumnFilters,
+    userMap: Map<string, IUserInfo>,
+    enterpriseMap: Map<string, IEnterpriseInfo>
+): ILogEntry[] {
     const hasAny = Object.values(f).some((v) => v !== '');
     if (!hasAny) return entries;
 
@@ -117,8 +124,51 @@ function applyColumnFilters(entries: ILogEntry[], f: IColumnFilters): ILogEntry[
             const min = parseFloat(f.minSize) * 1024; // KB to bytes
             if (!isNaN(min) && (e.response_bytes || 0) < min) return false;
         }
+        if (f.enterprise) {
+            if (!e.enterprise_id) return false;
+            const term = f.enterprise.toLowerCase();
+            const info = enterpriseMap.get(e.enterprise_id);
+            const nameMatch = info?.name?.toLowerCase().includes(term) ?? false;
+            const idMatch = e.enterprise_id.toLowerCase().includes(term);
+            if (!nameMatch && !idMatch) return false;
+        }
+        if (f.user) {
+            if (!e.user_id) return false;
+            const term = f.user.toLowerCase();
+            const info = userMap.get(e.user_id);
+            const nameMatch = info?.name?.toLowerCase().includes(term) ?? false;
+            const emailMatch = info?.email?.toLowerCase().includes(term) ?? false;
+            const idMatch = e.user_id.toLowerCase().includes(term);
+            if (!nameMatch && !emailMatch && !idMatch) return false;
+        }
         return true;
     });
+}
+
+function applySortBy(entries: ILogEntry[], sortBy: string): ILogEntry[] {
+    if (!sortBy || sortBy === '-timestamp') return entries;
+    const sorted = [...entries];
+    const desc = sortBy.startsWith('-');
+    const key = desc ? sortBy.slice(1) : sortBy;
+    const getVal = (e: ILogEntry): number => {
+        switch (key) {
+            case 'timestamp': return new Date(e.ts).getTime();
+            case 'elapsed_s': return e.elapsed_s;
+            case 'db_time_s': return e.db_time_s;
+            case 'db_queries': return e.db_queries;
+            case 'status_code': return e.status ?? 0;
+            case 'mem_delta': return e.mem_delta_mb;
+            case 'mem_after': return e.mem_after_mb;
+            case 'mem_before': return e.mem_before_mb;
+            case 'response_bytes': return e.response_bytes ?? 0;
+            default: return 0;
+        }
+    };
+    sorted.sort((a, b) => {
+        const diff = getVal(a) - getVal(b);
+        return desc ? -diff : diff;
+    });
+    return sorted;
 }
 
 // ── Main Page ──
@@ -166,14 +216,20 @@ const HealthMonitorPage: React.FC = () => {
 
     // Step 4: Apply column filters
     const columnFiltered = useMemo(
-        () => applyColumnFilters(searchFiltered, columnFilters),
-        [searchFiltered, columnFilters]
+        () => applyColumnFilters(searchFiltered, columnFilters, userMap, enterpriseMap),
+        [searchFiltered, columnFilters, userMap, enterpriseMap]
     );
 
     // Step 5: Apply timestamp filter for display
     const filteredEntries = useMemo(
         () => applyTimestampFilter(columnFiltered, filters.fromTs, filters.toTs),
         [columnFiltered, filters.fromTs, filters.toTs]
+    );
+
+    // Step 6: Client-side sort (live mode only — historical uses backend sort)
+    const sortedEntries = useMemo(
+        () => filters.isHistoricalMode ? filteredEntries : applySortBy(filteredEntries, filters.sortBy),
+        [filteredEntries, filters.sortBy, filters.isHistoricalMode]
     );
 
     return (
@@ -257,13 +313,15 @@ const HealthMonitorPage: React.FC = () => {
                         />
                     ) : (
                         <LogTable
-                            entries={filteredEntries}
+                            entries={sortedEntries}
                             newEntrySeqs={logs.newEntrySeqs}
                             isLoading={logs.isLoading}
                             isFirstLoad={logs.isFirstLoad}
                             maxConnections={health.dbData?.max_connections}
                             columnFilters={columnFilters}
                             onColumnFiltersChange={setColumnFilters}
+                            sortBy={filters.sortBy}
+                            onSortByChange={filters.setSortBy}
                             userMap={userMap}
                             enterpriseMap={enterpriseMap}
                         />

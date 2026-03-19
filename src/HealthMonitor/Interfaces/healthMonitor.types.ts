@@ -325,6 +325,8 @@ export interface IColumnFilters {
     minQueries: string;
     minMemory: string;
     minSize: string;
+    enterprise: string;
+    user: string;
 }
 
 export const EMPTY_COLUMN_FILTERS: IColumnFilters = {
@@ -336,6 +338,8 @@ export const EMPTY_COLUMN_FILTERS: IColumnFilters = {
     minQueries: '',
     minMemory: '',
     minSize: '',
+    enterprise: '',
+    user: '',
 };
 
 // ── Computed Metrics ──
