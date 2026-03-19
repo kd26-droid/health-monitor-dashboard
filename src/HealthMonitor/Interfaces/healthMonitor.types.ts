@@ -83,6 +83,7 @@ export interface ILogEntry {
     // Errors only
     error_type?: string;
     error?: string;
+    response_body?: string; // exact JSON body returned to client (error/slow/4xx only, capped 10KB)
 
     // Slow/error requests only
     slowest_query?: string;

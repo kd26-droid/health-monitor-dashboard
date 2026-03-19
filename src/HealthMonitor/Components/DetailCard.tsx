@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Typography, Chip } from '@mui/material';
 import { ILogEntry, IUserInfo, IEnterpriseInfo } from '../Interfaces/healthMonitor.types';
 import { isTaskEvent } from '../Utils/colorRules';
+import { prettyPrintJson } from '../Utils/formatters';
 import TimingBreakdown from './DetailSections/TimingBreakdown';
 import DatabaseQueries from './DetailSections/DatabaseQueries';
 import MemoryUsage from './DetailSections/MemoryUsage';
@@ -13,6 +14,7 @@ import DeadlockDetails from './DetailSections/DeadlockDetails';
 import LockTimeoutDetails from './DetailSections/LockTimeoutDetails';
 import NPlusOneQueries from './DetailSections/NPlusOneQueries';
 import QueueTime from './DetailSections/QueueTime';
+import SqlBlock from './SqlBlock';
 
 interface DetailCardProps {
     entry: ILogEntry;
@@ -27,6 +29,7 @@ const DetailCard: React.FC<DetailCardProps> = ({ entry, maxConnections }) => {
     const hasTaskArgs = isTask && !!entry.task_args;
     const hasResponseSize = entry.response_bytes != null;
     const hasRequestPayload = !!entry.request_payload;
+    const hasResponseBody = !!entry.response_body;
     const hasNPlusOne = entry.n_plus_1 && entry.n_plus_1.length > 0;
     const hasQueueTime = isTask && entry.queue_time_s != null;
 
@@ -151,6 +154,11 @@ const DetailCard: React.FC<DetailCardProps> = ({ entry, maxConnections }) => {
                     <ErrorDetails entry={entry} />
                 </Box>
             )}
+            {hasResponseBody && (
+                <Box sx={{ mt: 2.5 }}>
+                    <ResponseBodySection entry={entry} />
+                </Box>
+            )}
             {hasRequestPayload && (
                 <Box sx={{ mt: 2.5 }}>
                     <RequestPayload entry={entry} />
@@ -196,6 +204,32 @@ const MetaItem: React.FC<MetaItemProps> = ({ label, value, mono, children }) => 
         )}
     </Box>
 );
+
+const ResponseBodySection: React.FC<{ entry: ILogEntry }> = ({ entry }) => {
+    if (!entry.response_body) return null;
+    return (
+        <Box
+            sx={{
+                backgroundColor: '#FFF7ED',
+                border: '1px solid #FED7AA',
+                borderLeft: '4px solid #F97316',
+                borderRadius: 1,
+                p: 2,
+            }}
+        >
+            <Typography
+                variant="caption"
+                sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#9A3412', fontSize: '0.75rem', letterSpacing: 0.5 }}
+            >
+                Response Body
+            </Typography>
+            <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#7C2D12', mb: 1, mt: 0.5 }}>
+                Exact JSON the server sent back to the client
+            </Typography>
+            <SqlBlock sql={prettyPrintJson(entry.response_body)} previewLength={120} />
+        </Box>
+    );
+};
 
 function truncateId(id: string | null | undefined): string {
     if (!id) return '--';
