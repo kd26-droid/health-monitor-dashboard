@@ -35,8 +35,8 @@ export function useNameResolver(entries: ILogEntry[]): UseNameResolverReturn {
         }
 
         // Deduplicate and cap at 50 each (max 100 IDs per request)
-        const uniqueUserIds = [...new Set(newUserIds)].slice(0, 50);
-        const uniqueEnterpriseIds = [...new Set(newEnterpriseIds)].slice(0, 50);
+        const uniqueUserIds = Array.from(new Set(newUserIds)).slice(0, 50);
+        const uniqueEnterpriseIds = Array.from(new Set(newEnterpriseIds)).slice(0, 50);
 
         if (uniqueUserIds.length === 0 && uniqueEnterpriseIds.length === 0) return;
 
