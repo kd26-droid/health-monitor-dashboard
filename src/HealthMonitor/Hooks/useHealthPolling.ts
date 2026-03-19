@@ -21,7 +21,7 @@ interface UseHealthPollingReturn {
 }
 
 export function useHealthPolling(
-    on403: () => void
+    on403?: () => void
 ): UseHealthPollingReturn {
     const [healthData, setHealthData] = useState<IHealthResponse | null>(null);
     const [dbData, setDbData] = useState<IDbResponse | null>(null);
@@ -48,7 +48,7 @@ export function useHealthPolling(
         } catch (err: any) {
             if (!mountedRef.current) return;
 
-            if (err?.response?.status === 403) {
+            if (err?.response?.status === 403 && on403) {
                 on403();
                 return;
             }

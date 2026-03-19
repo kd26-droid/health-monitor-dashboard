@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { ILogEntry } from '../../Interfaces/healthMonitor.types';
 import { formatElapsed } from '../../Utils/formatters';
 import { getQueryExplanation } from '../../Utils/explanations';
+import SqlBlock from '../SqlBlock';
 
 interface DatabaseQueriesProps {
     entry: ILogEntry;
@@ -10,7 +11,7 @@ interface DatabaseQueriesProps {
 }
 
 const DatabaseQueries: React.FC<DatabaseQueriesProps> = ({ entry, maxConnections }) => {
-    const { db_queries, db_slow_count, db_slowest_s, slowest_query, elapsed_s, db_connections } =
+    const { db_queries, db_slow_count, db_slowest_s, db_avg_query_ms, slowest_query, elapsed_s, db_connections } =
         entry;
     const explanation = getQueryExplanation(db_queries, elapsed_s, db_slow_count);
 
@@ -37,8 +38,10 @@ const DatabaseQueries: React.FC<DatabaseQueriesProps> = ({ entry, maxConnections
             </Typography>
 
             <Typography variant="body2" sx={{ fontSize: '0.8rem', mt: 0.5, mb: 1.5 }}>
-                Slow queries: {db_slow_count} &nbsp;|&nbsp; Slowest:{' '}
-                {formatElapsed(db_slowest_s)}
+                Slow: {db_slow_count} &nbsp;|&nbsp; Slowest: {formatElapsed(db_slowest_s)}
+                {db_avg_query_ms != null && (
+                    <> &nbsp;|&nbsp; Avg: {db_avg_query_ms.toFixed(1)}ms</>
+                )}
                 {db_connections != null && (
                     <>
                         {' '}&nbsp;|&nbsp; Connections: {db_connections}
@@ -52,24 +55,8 @@ const DatabaseQueries: React.FC<DatabaseQueriesProps> = ({ entry, maxConnections
 
             {/* SQL block */}
             {slowest_query && (
-                <Box
-                    component="pre"
-                    sx={{
-                        backgroundColor: '#1F2937',
-                        color: '#E5E7EB',
-                        p: 1.5,
-                        borderRadius: 1,
-                        fontSize: '0.75rem',
-                        fontFamily: 'monospace',
-                        overflow: 'auto',
-                        maxHeight: 120,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-all',
-                        mt: 0,
-                        mb: 1.5,
-                    }}
-                >
-                    {slowest_query}
+                <Box sx={{ mb: 1.5 }}>
+                    <SqlBlock sql={slowest_query} />
                 </Box>
             )}
 

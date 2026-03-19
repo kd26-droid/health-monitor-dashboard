@@ -10,6 +10,7 @@ import { useMonitorAuth } from '../Hooks/useMonitorAuth';
 import { useMonitorFilters } from '../Hooks/useMonitorFilters';
 import { useHealthPolling } from '../Hooks/useHealthPolling';
 import { useLogPolling } from '../Hooks/useLogPolling';
+import { useNameResolver } from '../Hooks/useNameResolver';
 import HealthBanner from '../Components/HealthBanner';
 import MetricsCards from '../Components/MetricsCards';
 import Toolbar from '../Components/Toolbar';
@@ -18,6 +19,7 @@ import TokenPrompt from '../Components/TokenPrompt';
 import EmptyState from '../Components/EmptyState';
 import DbDiagnosticsPanel from '../Components/DbDiagnosticsPanel';
 import ErrorBreakdownPanel from '../Components/ErrorBreakdownPanel';
+import CleanupPanel from '../Components/CleanupPanel';
 import '../styles/healthMonitor.scss';
 
 // ── Helpers ──
@@ -131,7 +133,8 @@ const HealthMonitorPage: React.FC = () => {
     const historicalParams = filters.isHistoricalMode
         ? { from_ts: filters.historicalFromTs, to_ts: filters.historicalToTs }
         : undefined;
-    const logs = useLogPolling(filters.serverFilters, auth.handle403, historicalParams);
+    const logs = useLogPolling(filters.serverFilters, auth.handle403, historicalParams, filters.sortBy);
+    const { userMap, enterpriseMap } = useNameResolver(logs.entries);
 
     // Step 1: Hide OPTIONS unless explicitly selected
     const optionsFiltered = useMemo(() => {
@@ -140,23 +143,14 @@ const HealthMonitorPage: React.FC = () => {
     }, [logs.entries, filters.method]);
 
     // Step 2: Client-side request_payload search supplement
-    // Server search covers view, path, task, error, slowest_query but NOT request_payload.
-    // When a search term is active, additionally filter loaded entries to also match
-    // request_payload client-side. This is useful when browsing entries from polling —
-    // the user can search by entity ID or module name found in the payload.
     const searchFiltered = useMemo(() => {
         const term = filters.search.trim().toLowerCase();
         if (!term) return optionsFiltered;
 
-        // Keep entries where request_payload contains the search term.
-        // Entries that matched server-side fields are already in the buffer;
-        // this additionally narrows to those also relevant by payload content.
         return optionsFiltered.filter((e) => {
-            // Check request_payload (client-side supplement)
             if (e.request_payload && e.request_payload.toLowerCase().includes(term)) {
                 return true;
             }
-            // Check other visible fields client-side as a safety net
             const viewOrTask = (e.view || e.task || '').toLowerCase();
             const path = (e.path || '').toLowerCase();
             const error = (e.error || '').toLowerCase();
@@ -167,7 +161,7 @@ const HealthMonitorPage: React.FC = () => {
         });
     }, [optionsFiltered, filters.search]);
 
-    // Step 3: Compute metrics from OPTIONS-filtered + search-filtered entries (before timestamp filter)
+    // Step 3: Compute metrics
     const metrics = useMemo(() => computeMetrics(searchFiltered), [searchFiltered]);
 
     // Step 4: Apply column filters
@@ -212,6 +206,7 @@ const HealthMonitorPage: React.FC = () => {
                     search={filters.search}
                     event={filters.event}
                     method={filters.method}
+                    apiSource={filters.serverFilters.api_source}
                     fromTs={filters.fromTs}
                     toTs={filters.toTs}
                     entryCount={filteredEntries.length}
@@ -219,15 +214,23 @@ const HealthMonitorPage: React.FC = () => {
                     isLoading={logs.isLoading}
                     source={logs.source}
                     isHistoricalMode={filters.isHistoricalMode}
+                    totalCount={logs.totalCount}
+                    hasMore={logs.hasMore}
                     onSearchChange={filters.setSearch}
                     onEventChange={filters.setEvent}
                     onMethodChange={filters.setMethod}
+                    module={filters.serverFilters.module}
+                    onModuleChange={filters.setModule}
+                    sortBy={filters.sortBy}
+                    onSortByChange={filters.setSortBy}
+                    onApiSourceChange={filters.setApiSource}
                     onFromTsChange={filters.setFromTs}
                     onToTsChange={filters.setToTs}
                     onToggleLive={logs.toggleLive}
                     onClear={logs.clearEntries}
                     onEnterHistorical={filters.enterHistoricalMode}
                     onExitHistorical={filters.exitHistoricalMode}
+                    onLoadMore={logs.loadMore}
                 />
 
                 {/* DB Diagnostics only shown in non-production environments */}
@@ -238,6 +241,9 @@ const HealthMonitorPage: React.FC = () => {
 
                 {/* Error Breakdown Panel */}
                 <ErrorBreakdownPanel isConnected={health.isConnected} />
+
+                {/* Cleanup Panel */}
+                <CleanupPanel isConnected={health.isConnected} />
 
                 {/* Log table takes remaining space */}
                 <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -258,12 +264,14 @@ const HealthMonitorPage: React.FC = () => {
                             maxConnections={health.dbData?.max_connections}
                             columnFilters={columnFilters}
                             onColumnFiltersChange={setColumnFilters}
+                            userMap={userMap}
+                            enterpriseMap={enterpriseMap}
                         />
                     )}
                 </Box>
             </Box>
 
-            {/* Token prompt overlay */}
+            {/* Token prompt overlay (only shown if backend returns 403) */}
             {auth.showTokenPrompt && (
                 <TokenPrompt onSubmit={auth.handleTokenSubmit} />
             )}

@@ -9,11 +9,36 @@ interface TimingBreakdownProps {
 }
 
 const TimingBreakdown: React.FC<TimingBreakdownProps> = ({ entry }) => {
-    const { elapsed_s, db_time_s, app_time_s } = entry;
-    const dbPercent =
-        elapsed_s > 0 ? Math.round((db_time_s / elapsed_s) * 100) : 0;
-    const appPercent = 100 - dbPercent;
+    const { elapsed_s, db_time_s, app_time_s, db_time_pct, app_time_pct, outgoing_time_s, outgoing_time_pct } = entry;
+
+    // Use backend percentages when available; fall back to client-side calculation
+    const hasOutgoing = outgoing_time_s != null && outgoing_time_s > 0;
+    const dbPct = db_time_pct != null ? Math.round(db_time_pct) : (elapsed_s > 0 ? Math.round((db_time_s / elapsed_s) * 100) : 0);
+    const extPct = outgoing_time_pct != null ? Math.round(outgoing_time_pct) : 0;
+    const appPct = app_time_pct != null ? Math.round(app_time_pct) : (100 - dbPct - extPct);
+
     const explanation = getTimingExplanation(elapsed_s, db_time_s);
+
+    const Segment: React.FC<{ pct: number; color: string; label: string }> = ({ pct, color, label }) => (
+        pct > 0 ? (
+            <Box
+                sx={{
+                    width: `${pct}%`,
+                    backgroundColor: color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: pct > 0 ? 2 : 0,
+                }}
+            >
+                {pct >= 12 && (
+                    <Typography variant="caption" sx={{ color: '#FFF', fontSize: '0.62rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {label} {pct}%
+                    </Typography>
+                )}
+            </Box>
+        ) : null
+    );
 
     return (
         <Box>
@@ -37,7 +62,7 @@ const TimingBreakdown: React.FC<TimingBreakdownProps> = ({ entry }) => {
                 {formatElapsed(elapsed_s)} total
             </Typography>
 
-            {/* Stacked bar */}
+            {/* Stacked bar: DB (blue) | External (orange) | App (gray) */}
             {elapsed_s > 0 && (
                 <Box
                     sx={{
@@ -49,60 +74,18 @@ const TimingBreakdown: React.FC<TimingBreakdownProps> = ({ entry }) => {
                         mb: 1,
                     }}
                 >
-                    {dbPercent > 0 && (
-                        <Box
-                            sx={{
-                                width: `${dbPercent}%`,
-                                backgroundColor: '#3B82F6',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            {dbPercent >= 15 && (
-                                <Typography
-                                    variant="caption"
-                                    sx={{
-                                        color: '#FFF',
-                                        fontSize: '0.65rem',
-                                        fontWeight: 600,
-                                    }}
-                                >
-                                    DB {dbPercent}%
-                                </Typography>
-                            )}
-                        </Box>
-                    )}
-                    {appPercent > 0 && (
-                        <Box
-                            sx={{
-                                width: `${appPercent}%`,
-                                backgroundColor: '#10B981',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            {appPercent >= 15 && (
-                                <Typography
-                                    variant="caption"
-                                    sx={{
-                                        color: '#FFF',
-                                        fontSize: '0.65rem',
-                                        fontWeight: 600,
-                                    }}
-                                >
-                                    App {appPercent}%
-                                </Typography>
-                            )}
-                        </Box>
-                    )}
+                    <Segment pct={dbPct} color="#3B82F6" label="DB" />
+                    <Segment pct={extPct} color="#F97316" label="Ext" />
+                    <Segment pct={appPct} color="#6B7280" label="App" />
                 </Box>
             )}
 
             <Typography variant="body2" sx={{ fontSize: '0.8rem', mb: 1.5 }}>
-                DB: {formatElapsed(db_time_s)} ({dbPercent}%) &nbsp;&nbsp; App:{' '}
-                {formatElapsed(app_time_s)} ({appPercent}%)
+                <span style={{ color: '#3B82F6', fontWeight: 600 }}>DB</span> {formatElapsed(db_time_s)} ({dbPct}%)
+                {hasOutgoing && (
+                    <>&nbsp;&nbsp;<span style={{ color: '#F97316', fontWeight: 600 }}>Ext</span> {formatElapsed(outgoing_time_s!)} ({extPct}%)</>
+                )}
+                &nbsp;&nbsp;<span style={{ color: '#6B7280', fontWeight: 600 }}>App</span> {formatElapsed(app_time_s)} ({appPct}%)
             </Typography>
 
             {/* Explanation */}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Chip } from '@mui/material';
-import { ILogEntry } from '../Interfaces/healthMonitor.types';
+import { ILogEntry, IUserInfo, IEnterpriseInfo } from '../Interfaces/healthMonitor.types';
 import { isTaskEvent } from '../Utils/colorRules';
 import TimingBreakdown from './DetailSections/TimingBreakdown';
 import DatabaseQueries from './DetailSections/DatabaseQueries';
@@ -17,6 +17,8 @@ import QueueTime from './DetailSections/QueueTime';
 interface DetailCardProps {
     entry: ILogEntry;
     maxConnections?: number;
+    userMap: Map<string, IUserInfo>;
+    enterpriseMap: Map<string, IEnterpriseInfo>;
 }
 
 const DetailCard: React.FC<DetailCardProps> = ({ entry, maxConnections }) => {

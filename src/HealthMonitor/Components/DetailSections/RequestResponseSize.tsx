@@ -9,8 +9,11 @@ interface RequestResponseSizeProps {
 }
 
 const RequestResponseSize: React.FC<RequestResponseSizeProps> = ({ entry }) => {
-    const { request_bytes, response_bytes } = entry;
+    const { request_bytes, response_bytes, request_size, response_size } = entry;
     const explanation = getResponseSizeExplanation(response_bytes);
+
+    const displayResponseSize = response_size ?? formatSize(response_bytes);
+    const displayRequestSize = request_size ?? formatSize(request_bytes);
 
     return (
         <Box>
@@ -31,11 +34,11 @@ const RequestResponseSize: React.FC<RequestResponseSizeProps> = ({ entry }) => {
                 variant="h6"
                 sx={{ fontWeight: 700, mt: 1, fontSize: '1.1rem' }}
             >
-                {formatSize(response_bytes)} response
+                {displayResponseSize} response
             </Typography>
 
             <Typography variant="body2" sx={{ fontSize: '0.8rem', mt: 0.5, mb: 1.5 }}>
-                Request body: {formatSize(request_bytes)}
+                Request body: {displayRequestSize}
             </Typography>
 
             {/* Explanation */}

@@ -11,6 +11,12 @@ interface UseMonitorAuthReturn {
     dismissTokenPrompt: () => void;
 }
 
+/**
+ * Auth hook for monitor token.
+ * Currently inactive — backend has HEALTH_MONITOR_TOKEN unset on dev/prod.
+ * Kept for future use: if backend enables token auth, the 403 handler
+ * will trigger the token prompt automatically.
+ */
 export function useMonitorAuth(): UseMonitorAuthReturn {
     const [showTokenPrompt, setShowTokenPrompt] = useState(false);
 
@@ -24,7 +30,6 @@ export function useMonitorAuth(): UseMonitorAuthReturn {
     }, []);
 
     const dismissTokenPrompt = useCallback(() => {
-        // Only dismiss if we already have a token stored
         if (getMonitorToken()) {
             setShowTokenPrompt(false);
         }

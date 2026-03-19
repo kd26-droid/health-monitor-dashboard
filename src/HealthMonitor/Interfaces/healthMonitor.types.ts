@@ -10,6 +10,17 @@ export type TEventType =
 
 export type THttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'OPTIONS';
 
+// ── Outgoing HTTP Call ──
+
+export interface IOutgoingCall {
+    method: string;
+    host: string;
+    url: string;
+    status?: number | null;
+    duration_s: number;
+    error?: string | null;
+}
+
 // ── Log Entry (from GET /monitor/logs/) ──
 
 export interface ILogEntry {
@@ -23,6 +34,7 @@ export interface ILogEntry {
     view?: string;
     method?: THttpMethod;
     path?: string;
+    query_params?: Record<string, string | string[]> | null;
     user_id?: string | null;
     enterprise_id?: string | null;
     status?: number | null;
@@ -49,7 +61,24 @@ export interface ILogEntry {
     mem_before_mb: number;
     mem_after_mb: number;
     mem_delta_mb: number;
+    mem_total_mb?: number;   // Total system RAM (same for all entries from same server)
+    mem_used_pct?: number;   // Process memory as % of total system RAM
     db_connections?: number;
+    db_avg_query_ms?: number;  // Average time per DB query in milliseconds
+
+    // Time breakdown percentages (sum to ~100%)
+    db_time_pct?: number;
+    app_time_pct?: number;
+    outgoing_time_s?: number;
+    outgoing_time_pct?: number;
+
+    // Outgoing HTTP calls
+    outgoing_calls?: IOutgoingCall[];
+    outgoing_call_count?: number;
+
+    // Human-readable sizes (pre-formatted by backend)
+    request_size?: string;
+    response_size?: string;
 
     // Errors only
     error_type?: string;
@@ -57,6 +86,19 @@ export interface ILogEntry {
 
     // Slow/error requests only
     slowest_query?: string;
+
+    // Gateway timeout (API Gateway 504) — true only on timeout entries
+    gateway_timeout?: boolean;
+
+    // Duplicate call detection — only present when duplicate detected
+    duplicate_call?: boolean;
+    duplicate_count?: number;
+
+    // API source — missing on old entries (treat as 'internal')
+    api_source?: 'internal' | 'open_api';
+
+    // Module derived from URL path (missing on old entries — treat as 'other')
+    module?: string;
 
     // Deadlock fields (only when a deadlock occurred)
     deadlock?: boolean;
@@ -79,6 +121,11 @@ export interface ILogsResponse {
     total_in_buffer?: number;
     // Historical mode (database) fields
     count?: number;
+    total_count?: number;   // Total matching entries across all pages
+    offset?: number;        // Current offset used
+    limit?: number;         // Page size used
+    has_more?: boolean;     // True if more pages exist
+    next_offset?: number | null; // Pass as offset on next request; null if no more
 }
 
 // ── Health (from GET /monitor/health/) ──
@@ -221,12 +268,30 @@ export interface ISystemResponse {
     gunicorn_workers?: IGunicornWorker[];
 }
 
+// ── Name Resolver (from POST /monitor/resolve-names/) ──
+
+export interface IUserInfo {
+    name: string;
+    email: string;
+}
+
+export interface IEnterpriseInfo {
+    name: string;
+}
+
+export interface IResolveNamesResponse {
+    users: Record<string, IUserInfo>;
+    enterprises: Record<string, IEnterpriseInfo>;
+}
+
 // ── Filter State ──
 
 export interface IServerFilters {
     search: string;
     event: TEventType | '';
     method: THttpMethod | '';
+    api_source: 'internal' | 'open_api' | '';
+    module: string;
 }
 
 // ── Errors Breakdown (NEW: from GET /monitor/errors/) ──

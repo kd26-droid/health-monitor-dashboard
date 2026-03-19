@@ -54,6 +54,26 @@ export function formatTimestamp(isoString: string): string {
 }
 
 /**
+ * Format query_params dict as a URL query string: "page=2&status=active"
+ * Multi-value params become repeated keys: "id=1&id=2"
+ * Returns empty string when params is null/empty.
+ */
+export function formatQueryString(
+    params: Record<string, string | string[]> | null | undefined
+): string {
+    if (!params) return '';
+    const parts: string[] = [];
+    for (const [key, val] of Object.entries(params)) {
+        if (Array.isArray(val)) {
+            val.forEach((v) => parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`));
+        } else {
+            parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(val)}`);
+        }
+    }
+    return parts.join('&');
+}
+
+/**
  * Safe JSON pretty-print. Returns formatted JSON or raw string on parse failure.
  */
 export function prettyPrintJson(jsonString: string): string {

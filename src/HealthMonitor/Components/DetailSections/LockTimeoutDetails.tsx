@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { ILogEntry } from '../../Interfaces/healthMonitor.types';
+import SqlBlock from '../SqlBlock';
 
 interface LockTimeoutDetailsProps {
     entry: ILogEntry;
@@ -41,23 +42,7 @@ const LockTimeoutDetails: React.FC<LockTimeoutDetailsProps> = ({ entry }) => {
                     >
                         Query that was waiting:
                     </Typography>
-                    <Box
-                        component="pre"
-                        sx={{
-                            backgroundColor: '#1F2937',
-                            color: '#FDE68A',
-                            p: 1.5,
-                            borderRadius: 1,
-                            fontSize: '0.75rem',
-                            fontFamily: 'monospace',
-                            overflow: 'auto',
-                            maxHeight: 120,
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-all',
-                        }}
-                    >
-                        {entry.lock_timeout_query}
-                    </Box>
+                    <SqlBlock sql={entry.lock_timeout_query} />
                 </Box>
             )}
 

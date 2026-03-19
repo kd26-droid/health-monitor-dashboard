@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Tooltip, Typography } from '@mui/material';
-import { ILogEntry } from '../Interfaces/healthMonitor.types';
+import { ILogEntry, IUserInfo, IEnterpriseInfo } from '../Interfaces/healthMonitor.types';
 import { COLUMN_WIDTHS, THRESHOLDS } from '../Constants/healthMonitor.constants';
 import {
     getEventBorderColor,
@@ -14,6 +14,7 @@ import {
     formatSize,
     formatMemDelta,
     formatTimestamp,
+    formatQueryString,
 } from '../Utils/formatters';
 import StatusBadge from './StatusBadge';
 
@@ -22,6 +23,13 @@ interface LogRowProps {
     isNew: boolean;
     isExpanded: boolean;
     onClick: () => void;
+    userMap: Map<string, IUserInfo>;
+    enterpriseMap: Map<string, IEnterpriseInfo>;
+}
+
+function formatModuleLabel(module: string | undefined): string {
+    if (!module || module === 'other') return '';
+    return module.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 const THRESHOLD_COLORS = {
@@ -30,9 +38,11 @@ const THRESHOLD_COLORS = {
     error: '#DC2626',
 };
 
-const LogRow: React.FC<LogRowProps> = ({ entry, isNew, isExpanded, onClick }) => {
+const LogRow: React.FC<LogRowProps> = ({ entry, isNew, isExpanded, onClick, userMap, enterpriseMap }) => {
     const borderColor = getEventBorderColor(entry.event);
     const isTask = isTaskEvent(entry.event);
+    const queryString = formatQueryString(entry.query_params);
+    const fullPathUrl = queryString ? `${entry.path}?${queryString}` : (entry.path ?? '');
 
     return (
         <Box
@@ -46,6 +56,8 @@ const LogRow: React.FC<LogRowProps> = ({ entry, isNew, isExpanded, onClick }) =>
                     ? '#F0F4FF'
                     : isNew
                     ? '#EFF6FF'
+                    : entry.duplicate_call
+                    ? '#FFF7ED'
                     : '#FFFFFF',
                 cursor: 'pointer',
                 minHeight: 40,
@@ -74,7 +86,30 @@ const LogRow: React.FC<LogRowProps> = ({ entry, isNew, isExpanded, onClick }) =>
                     lockTimeout={entry.lock_timeout}
                     hasNPlusOne={!!(entry.n_plus_1 && entry.n_plus_1.length > 0)}
                     queueTimeS={entry.queue_time_s}
+                    gatewayTimeout={entry.gateway_timeout}
+                    isOpenApi={entry.api_source === 'open_api'}
+                    duplicateCall={entry.duplicate_call}
+                    duplicateCount={entry.duplicate_count}
                 />
+            </Cell>
+
+            {/* Module */}
+            <Cell width={COLUMN_WIDTHS.module}>
+                {entry.module && entry.module !== 'other' && (
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            color: '#6366F1',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        {formatModuleLabel(entry.module)}
+                    </Typography>
+                )}
             </Cell>
 
             {/* API / Task */}
@@ -114,19 +149,37 @@ const LogRow: React.FC<LogRowProps> = ({ entry, isNew, isExpanded, onClick }) =>
             {/* Path */}
             <Cell width={COLUMN_WIDTHS.path}>
                 {entry.path && (
-                    <Tooltip title={entry.path} arrow>
-                        <Typography
-                            variant="body2"
-                            sx={{
-                                fontSize: '0.75rem',
-                                fontFamily: 'monospace',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            {entry.path}
-                        </Typography>
+                    <Tooltip title={fullPathUrl} arrow>
+                        <Box sx={{ overflow: 'hidden' }}>
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    fontSize: '0.75rem',
+                                    fontFamily: 'monospace',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {entry.path}
+                            </Typography>
+                            {queryString && (
+                                <Typography
+                                    variant="body2"
+                                    sx={{
+                                        fontSize: '0.68rem',
+                                        fontFamily: 'monospace',
+                                        color: '#6366F1',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        lineHeight: 1.2,
+                                    }}
+                                >
+                                    ?{queryString}
+                                </Typography>
+                            )}
+                        </Box>
                     </Tooltip>
                 )}
             </Cell>
@@ -139,7 +192,7 @@ const LogRow: React.FC<LogRowProps> = ({ entry, isNew, isExpanded, onClick }) =>
                         sx={{
                             fontSize: '0.78rem',
                             fontWeight: 600,
-                            color: getHttpStatusColor(entry.status),
+                            color: getHttpStatusColor(entry.status, entry.gateway_timeout),
                         }}
                     >
                         {entry.status}
@@ -182,13 +235,27 @@ const LogRow: React.FC<LogRowProps> = ({ entry, isNew, isExpanded, onClick }) =>
 
             {/* Memory */}
             <Cell width={COLUMN_WIDTHS.memory}>
-                <ColoredValue
-                    value={Math.abs(entry.mem_delta_mb)}
-                    yellow={THRESHOLDS.mem_delta_mb.yellow}
-                    red={THRESHOLDS.mem_delta_mb.red}
+                <Tooltip
+                    title={
+                        entry.mem_used_pct != null
+                            ? `${entry.mem_after_mb?.toFixed(1)} MB (${entry.mem_used_pct.toFixed(1)}% of ${entry.mem_total_mb?.toFixed(0)} MB system)`
+                            : `${entry.mem_after_mb?.toFixed(1)} MB`
+                    }
+                    arrow
                 >
-                    {formatMemDelta(entry.mem_delta_mb)}
-                </ColoredValue>
+                    <Box>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', lineHeight: 1.3, fontWeight: 500 }}>
+                            {entry.mem_after_mb != null ? `${entry.mem_after_mb.toFixed(1)} MB` : '–'}
+                        </Typography>
+                        <ColoredValue
+                            value={Math.abs(entry.mem_delta_mb)}
+                            yellow={THRESHOLDS.mem_delta_mb.yellow}
+                            red={THRESHOLDS.mem_delta_mb.red}
+                        >
+                            {formatMemDelta(entry.mem_delta_mb)}
+                        </ColoredValue>
+                    </Box>
+                </Tooltip>
             </Cell>
 
             {/* Size */}
@@ -200,6 +267,45 @@ const LogRow: React.FC<LogRowProps> = ({ entry, isNew, isExpanded, onClick }) =>
                 >
                     {formatSize(entry.response_bytes)}
                 </ColoredValue>
+            </Cell>
+            {/* Enterprise */}
+            <Cell width={COLUMN_WIDTHS.enterprise}>
+                {entry.enterprise_id && (
+                    <Tooltip title={entry.enterprise_id} arrow>
+                        <Typography
+                            variant="body2"
+                            sx={{
+                                fontSize: '0.72rem',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                color: '#374151',
+                            }}
+                        >
+                            {enterpriseMap.get(entry.enterprise_id)?.name ?? entry.enterprise_id.slice(0, 8) + '…'}
+                        </Typography>
+                    </Tooltip>
+                )}
+            </Cell>
+
+            {/* User */}
+            <Cell width={COLUMN_WIDTHS.user}>
+                {entry.user_id && (
+                    <Tooltip title={`${userMap.get(entry.user_id)?.email ?? ''}\n${entry.user_id}`} arrow>
+                        <Typography
+                            variant="body2"
+                            sx={{
+                                fontSize: '0.72rem',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                color: '#374151',
+                            }}
+                        >
+                            {userMap.get(entry.user_id)?.name ?? entry.user_id.slice(0, 8) + '…'}
+                        </Typography>
+                    </Tooltip>
+                )}
             </Cell>
         </Box>
     );
@@ -249,6 +355,8 @@ export default React.memo(LogRow, (prev, next) => {
     return (
         prev.entry._seq === next.entry._seq &&
         prev.isNew === next.isNew &&
-        prev.isExpanded === next.isExpanded
+        prev.isExpanded === next.isExpanded &&
+        prev.userMap === next.userMap &&
+        prev.enterpriseMap === next.enterpriseMap
     );
 });

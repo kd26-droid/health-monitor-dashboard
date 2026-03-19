@@ -210,8 +210,9 @@ export function getErrorExplanation(
     }
     if (errType === 'TimeoutError') {
         return (
-            'The request timed out at the Python level (not the database). ' +
-            'This could mean an external service call (API, S3, etc.) is not responding.'
+            'The request exceeded the API Gateway 30-second timeout and was killed at ~25s. ' +
+            'The response never completed — status is 504 (Gateway Timeout). ' +
+            'This is a serious performance issue — check the timing breakdown and DB queries.'
         );
     }
     if (errType === 'ConnectionError' || errMsg.includes('connect')) {

@@ -11,6 +11,15 @@ import {
     LOG_FETCH_LIMIT,
 } from '../Constants/healthMonitor.constants';
 
+// Sort entries newest first (descending by timestamp)
+function sortDesc(entries: ILogEntry[]): ILogEntry[] {
+    return [...entries].sort((a, b) => {
+        if (a.ts > b.ts) return -1;
+        if (a.ts < b.ts) return 1;
+        return (b._seq || 0) - (a._seq || 0);
+    });
+}
+
 interface UseLogPollingReturn {
     entries: ILogEntry[];
     isFirstLoad: boolean;
@@ -19,6 +28,10 @@ interface UseLogPollingReturn {
     totalInBuffer: number;
     newEntrySeqs: Set<number>;
     source: 'buffer' | 'database';
+    // Pagination (historical mode)
+    totalCount: number;
+    hasMore: boolean;
+    loadMore: () => void;
     toggleLive: () => void;
     clearEntries: () => void;
 }
@@ -30,8 +43,9 @@ interface HistoricalParams {
 
 export function useLogPolling(
     serverFilters: IServerFilters,
-    on403: () => void,
-    historicalParams?: HistoricalParams
+    on403?: () => void,
+    historicalParams?: HistoricalParams,
+    sortBy?: string
 ): UseLogPollingReturn {
     const [entries, setEntries] = useState<ILogEntry[]>([]);
     const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -40,34 +54,56 @@ export function useLogPolling(
     const [totalInBuffer, setTotalInBuffer] = useState(0);
     const [newEntrySeqs, setNewEntrySeqs] = useState<Set<number>>(new Set());
     const [source, setSource] = useState<'buffer' | 'database'>('buffer');
+    const [totalCount, setTotalCount] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
 
     const isHistoricalMode = !!(historicalParams?.from_ts);
 
+    // Keep refs so callbacks always see the current value
+    const isHistoricalRef = useRef(isHistoricalMode);
+    isHistoricalRef.current = isHistoricalMode;
+
+    const historicalParamsRef = useRef<HistoricalParams | undefined>(historicalParams);
+    historicalParamsRef.current = historicalParams;
+
+    const sortByRef = useRef<string | undefined>(sortBy);
+    sortByRef.current = sortBy;
+
+    const nextOffsetRef = useRef<number | null>(null);
     const cursorRef = useRef(0);
     const generationRef = useRef(0);
     const mountedRef = useRef(true);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // Keep serverFilters in a ref so the polling interval always uses current filters
+    const serverFiltersRef = useRef(serverFilters);
+    serverFiltersRef.current = serverFilters;
+
     // ── Core fetch function for LIVE mode ──
     const pollOnce = useCallback(
         async (generation: number, resetCursor: boolean) => {
-            if (isHistoricalMode) return; // Don't poll in historical mode
+            // Always check the ref, not the closure
+            if (isHistoricalRef.current) return;
 
             try {
                 const since = resetCursor ? 0 : cursorRef.current;
+                const filters = serverFiltersRef.current;
 
                 const data = await fetchLogs({
                     since,
                     limit: LOG_FETCH_LIMIT,
-                    event: serverFilters.event || undefined,
-                    method: serverFilters.method || undefined,
-                    search: serverFilters.search || undefined,
+                    event: filters.event || undefined,
+                    method: filters.method || undefined,
+                    search: filters.search || undefined,
+                    api_source: filters.api_source || undefined,
+                    module: filters.module || undefined,
                 });
 
                 if (!mountedRef.current) return;
-                // Discard stale response
                 if (generation !== generationRef.current) return;
+                // Double-check we didn't switch to historical while the request was in flight
+                if (isHistoricalRef.current) return;
 
                 const newEntries = data.entries;
                 cursorRef.current = data.cursor ?? 0;
@@ -75,20 +111,16 @@ export function useLogPolling(
                 setSource(data.source || 'buffer');
 
                 if (resetCursor) {
-                    // Full replace on filter change
-                    setEntries(newEntries.slice(0, MAX_ENTRIES));
+                    setEntries(sortDesc(newEntries).slice(0, MAX_ENTRIES));
                 } else if (newEntries.length > 0) {
-                    // Prepend new entries
                     setEntries((prev) => {
-                        const combined = [...newEntries, ...prev];
+                        const combined = sortDesc([...newEntries, ...prev]);
                         return combined.slice(0, MAX_ENTRIES);
                     });
 
-                    // Track new seqs for highlight animation
                     const seqs = new Set(newEntries.map((e) => e._seq));
                     setNewEntrySeqs(seqs);
 
-                    // Clear highlights after 500ms
                     if (highlightTimerRef.current) {
                         clearTimeout(highlightTimerRef.current);
                     }
@@ -105,7 +137,7 @@ export function useLogPolling(
                 if (!mountedRef.current) return;
                 if (generation !== generationRef.current) return;
 
-                if (err?.response?.status === 403) {
+                if (err?.response?.status === 403 && on403) {
                     on403();
                     return;
                 }
@@ -117,39 +149,47 @@ export function useLogPolling(
                 });
             }
         },
-        [serverFilters, on403, isHistoricalMode]
+        [on403]
     );
 
-    // ── Fetch function for HISTORICAL mode ──
+    // ── Fetch function for HISTORICAL mode (first page) ──
     const fetchHistorical = useCallback(
-        async (generation: number) => {
-            if (!historicalParams?.from_ts) return;
+        async (generation: number, params: HistoricalParams) => {
+            if (!params.from_ts) return;
 
             try {
                 setIsLoading(true);
+                const filters = serverFiltersRef.current;
 
                 const data = await fetchLogs({
-                    from_ts: historicalParams.from_ts,
-                    to_ts: historicalParams.to_ts || undefined,
+                    from_ts: params.from_ts,
+                    to_ts: params.to_ts || undefined,
                     limit: 500,
-                    event: serverFilters.event || undefined,
-                    method: serverFilters.method || undefined,
-                    search: serverFilters.search || undefined,
+                    offset: 0,
+                    event: filters.event || undefined,
+                    method: filters.method || undefined,
+                    search: filters.search || undefined,
+                    api_source: filters.api_source || undefined,
+                    module: filters.module || undefined,
+                    sort_by: sortByRef.current || undefined,
                 });
 
                 if (!mountedRef.current) return;
                 if (generation !== generationRef.current) return;
 
-                setEntries(data.entries);
+                setEntries(sortDesc(data.entries));
                 setSource(data.source || 'database');
-                setTotalInBuffer(data.count ?? data.entries.length);
+                setTotalCount(data.total_count ?? data.count ?? data.entries.length);
+                setHasMore(data.has_more ?? false);
+                nextOffsetRef.current = data.next_offset ?? null;
+                setTotalInBuffer(data.total_count ?? data.count ?? data.entries.length);
                 setIsFirstLoad(false);
                 setIsLoading(false);
             } catch (err: any) {
                 if (!mountedRef.current) return;
                 if (generation !== generationRef.current) return;
 
-                if (err?.response?.status === 403) {
+                if (err?.response?.status === 403 && on403) {
                     on403();
                     return;
                 }
@@ -161,22 +201,74 @@ export function useLogPolling(
                 });
             }
         },
-        [historicalParams, serverFilters, on403]
+        [on403]
     );
+
+    // ── Load next page of historical results ──
+    const loadMore = useCallback(async () => {
+        if (!isHistoricalRef.current) return;
+        if (nextOffsetRef.current === null) return;
+
+        const params = historicalParamsRef.current;
+        if (!params?.from_ts) return;
+
+        // Use current generation — if filters change while in-flight, the result is discarded
+        const gen = generationRef.current;
+        setIsLoading(true);
+
+        try {
+            const filters = serverFiltersRef.current;
+
+            const data = await fetchLogs({
+                from_ts: params.from_ts,
+                to_ts: params.to_ts || undefined,
+                limit: 500,
+                offset: nextOffsetRef.current,
+                event: filters.event || undefined,
+                method: filters.method || undefined,
+                search: filters.search || undefined,
+                api_source: filters.api_source || undefined,
+                module: filters.module || undefined,
+                sort_by: sortByRef.current || undefined,
+            });
+
+            if (!mountedRef.current) return;
+            if (gen !== generationRef.current) return;
+
+            // Append new (older) entries after existing ones
+            setEntries((prev) => [...prev, ...sortDesc(data.entries)]);
+            setHasMore(data.has_more ?? false);
+            nextOffsetRef.current = data.next_offset ?? null;
+            setTotalCount(data.total_count ?? 0);
+            setIsLoading(false);
+        } catch (err: any) {
+            if (!mountedRef.current) return;
+            if (gen !== generationRef.current) return;
+
+            setIsLoading(false);
+            toast.error('Failed to load more logs.', {
+                toastId: 'load-more-error',
+                autoClose: 3000,
+            });
+        }
+    }, []);
 
     // ── React to mode/filter changes ──
     useEffect(() => {
         generationRef.current += 1;
         const gen = generationRef.current;
         cursorRef.current = 0;
+        nextOffsetRef.current = null;
+        setHasMore(false);
+        setTotalCount(0);
         setIsLoading(true);
 
-        if (isHistoricalMode) {
-            fetchHistorical(gen);
-        } else {
+        if (isHistoricalMode && historicalParams) {
+            fetchHistorical(gen, historicalParams);
+        } else if (!isHistoricalMode) {
             pollOnce(gen, true);
         }
-    }, [serverFilters, historicalParams?.from_ts, historicalParams?.to_ts]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [serverFilters, isHistoricalMode, historicalParams?.from_ts, historicalParams?.to_ts, sortBy, fetchHistorical, pollOnce]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Periodic polling (only in live mode) ──
     useEffect(() => {
@@ -220,18 +312,24 @@ export function useLogPolling(
         setEntries([]);
         cursorRef.current = 0;
         generationRef.current += 1;
+        nextOffsetRef.current = null;
         setTotalInBuffer(0);
+        setTotalCount(0);
+        setHasMore(false);
         setNewEntrySeqs(new Set());
     }, []);
 
     return {
         entries,
         isFirstLoad,
-        isLive: isLive && !isHistoricalMode, // Force false in historical mode
+        isLive: isLive && !isHistoricalMode,
         isLoading,
         totalInBuffer,
         newEntrySeqs,
         source,
+        totalCount,
+        hasMore,
+        loadMore,
         toggleLive,
         clearEntries,
     };

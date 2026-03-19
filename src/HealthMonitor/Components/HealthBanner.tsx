@@ -5,6 +5,7 @@ import {
     IDbResponse,
     ISystemResponse,
 } from '../Interfaces/healthMonitor.types';
+import { getEnvFromPath, ENV_CONFIGS } from '../Constants/healthMonitor.constants';
 
 interface HealthBannerProps {
     healthData: IHealthResponse | null;
@@ -27,6 +28,10 @@ const HealthBanner: React.FC<HealthBannerProps> = ({
     lastUpdated,
     isConnected,
 }) => {
+    const envName = getEnvFromPath();
+    const envConfig = ENV_CONFIGS[envName];
+    const isProd = envName === 'prod';
+
     const status = healthData?.status;
     const checks = healthData?.checks;
     const dotColor = status
@@ -106,6 +111,23 @@ const HealthBanner: React.FC<HealthBannerProps> = ({
             <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.8rem', mr: 1 }}>
                 {statusLabel}
             </Typography>
+
+            {/* Environment badge */}
+            <Box
+                sx={{
+                    px: 1,
+                    py: 0.25,
+                    borderRadius: 1,
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    letterSpacing: 0.5,
+                    backgroundColor: isProd ? '#FF3B30' : '#34C759',
+                    color: '#FFFFFF',
+                    mr: 0.5,
+                }}
+            >
+                {envConfig.label}
+            </Box>
 
             <Separator />
 

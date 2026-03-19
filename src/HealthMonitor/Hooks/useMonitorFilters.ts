@@ -5,6 +5,8 @@ import {
     THttpMethod,
     IServerFilters,
 } from '../Interfaces/healthMonitor.types';
+
+type TApiSource = 'internal' | 'open_api' | '';
 import { SEARCH_DEBOUNCE_MS } from '../Constants/healthMonitor.constants';
 
 // Convert ISO string to datetime-local input format (YYYY-MM-DDTHH:MM)
@@ -35,6 +37,10 @@ interface UseMonitorFiltersReturn {
     setSearch: (value: string) => void;
     setEvent: (value: TEventType | '') => void;
     setMethod: (value: THttpMethod | '') => void;
+    setApiSource: (value: TApiSource) => void;
+    setModule: (value: string) => void;
+    sortBy: string;
+    setSortBy: (value: string) => void;
     setFromTs: (value: string) => void;
     setToTs: (value: string) => void;
     resetFilters: () => void;
@@ -47,12 +53,17 @@ export function useMonitorFilters(): UseMonitorFiltersReturn {
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [event, setEvent] = useState<TEventType | ''>('');
     const [method, setMethod] = useState<THttpMethod | ''>('');
+    const [apiSource, setApiSource] = useState<TApiSource>('');
+    const [module, setModule] = useState('');
+    const [sortBy, setSortBy] = useState('-timestamp');
 
-    // On Lambda (non-localhost), default to historical mode (last 30 min)
+    // On Lambda (non-localhost), default to historical mode (today, midnight to now)
     const isLambda = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
 
-    // Compute initial date values for Lambda
-    const initialFromIso = isLambda ? new Date(Date.now() - 30 * 60 * 1000).toISOString() : '';
+    // Compute initial date values for Lambda — today from midnight
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const initialFromIso = isLambda ? todayStart.toISOString() : '';
     const initialToIso = isLambda ? new Date().toISOString() : '';
 
     // The visible datetime-local inputs — pre-fill on Lambda
@@ -94,8 +105,10 @@ export function useMonitorFilters(): UseMonitorFiltersReturn {
             search: debouncedSearch,
             event,
             method,
+            api_source: apiSource,
+            module,
         }),
-        [debouncedSearch, event, method]
+        [debouncedSearch, event, method, apiSource, module]
     );
 
     const resetFilters = useCallback(() => {
@@ -104,6 +117,9 @@ export function useMonitorFilters(): UseMonitorFiltersReturn {
         debouncedSetSearch.cancel();
         setEvent('');
         setMethod('');
+        setApiSource('');
+        setModule('');
+        setSortBy('-timestamp');
         setFromTs('');
         setToTs('');
         setHistoricalFromTs('');
@@ -136,6 +152,10 @@ export function useMonitorFilters(): UseMonitorFiltersReturn {
         setSearch,
         setEvent,
         setMethod,
+        setApiSource,
+        setModule,
+        sortBy,
+        setSortBy,
         setFromTs,
         setToTs,
         resetFilters,

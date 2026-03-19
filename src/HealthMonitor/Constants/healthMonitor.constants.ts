@@ -4,7 +4,37 @@ export const MAX_ENTRIES = 2000;
 export const SEARCH_DEBOUNCE_MS = 800;
 export const LOG_FETCH_LIMIT = 200;
 
-export const MONITOR_TOKEN_KEY = 'health_monitor_token';
+// ── Environment URLs ──
+// Path-based routing: /prod uses prod API, default uses dev API
+
+export type TEnvName = 'dev' | 'prod';
+
+export interface IEnvConfig {
+    label: string;
+    apiUrl: string;
+}
+
+export const ENV_CONFIGS: Record<TEnvName, IEnvConfig> = {
+    dev: {
+        label: 'DEV',
+        apiUrl: 'https://poiigw0go0.execute-api.us-east-1.amazonaws.com/dev',
+    },
+    prod: {
+        label: 'PROD',
+        apiUrl: 'https://qc9s5bz8d7.execute-api.us-east-1.amazonaws.com/prod',
+    },
+};
+
+/**
+ * Determine environment from the current URL path.
+ * /prod or /prod/* → 'prod', everything else → 'dev'
+ */
+export function getEnvFromPath(): TEnvName {
+    if (typeof window === 'undefined') return 'dev';
+    const path = window.location.pathname;
+    if (path === '/prod' || path.startsWith('/prod/')) return 'prod';
+    return 'dev';
+}
 
 // ── Thresholds for color coding ──
 
@@ -12,7 +42,7 @@ export const THRESHOLDS = {
     elapsed_s: { yellow: 2, red: 5 },
     db_time_s: { yellow: 1, red: 2 },
     db_queries: { yellow: 50, red: 200 },
-    mem_delta_mb: { yellow: 20, red: 50 },
+    mem_delta_mb: { yellow: 5, red: 10 },
     response_bytes: { yellow: 102400, red: 512000 },
     avgTime: { yellow: 2, red: 5 },
     avgQueries: { yellow: 30, red: 100 },
@@ -37,6 +67,47 @@ export const METHOD_OPTIONS = [
     { value: 'PUT', label: 'PUT' },
     { value: 'DELETE', label: 'DELETE' },
     { value: 'OPTIONS', label: 'OPTIONS' },
+] as const;
+
+export const MODULE_OPTIONS = [
+    { value: '', label: 'All Modules' },
+    { value: 'rfq', label: 'RFQ' },
+    { value: 'rfi', label: 'RFI' },
+    { value: 'rfp', label: 'RFP' },
+    { value: 'po_group', label: 'PO Group' },
+    { value: 'events', label: 'Events' },
+    { value: 'purchase_order', label: 'Purchase Order' },
+    { value: 'contract', label: 'Contract' },
+    { value: 'invoice', label: 'Invoice' },
+    { value: 'requisition', label: 'Requisition' },
+    { value: 'goods_receipt', label: 'Goods Receipt' },
+    { value: 'quality_check', label: 'Quality Check' },
+    { value: 'delivery_schedule', label: 'Delivery Schedule' },
+    { value: 'payment', label: 'Payment' },
+    { value: 'organization', label: 'Organization' },
+    { value: 'dashboard', label: 'Dashboard' },
+    { value: 'analytics', label: 'Analytics' },
+    { value: 'authentication', label: 'Authentication' },
+    { value: 'notification', label: 'Notification' },
+    { value: 'attachment', label: 'Attachment' },
+    { value: 'approval', label: 'Approval' },
+    { value: 'templates', label: 'Templates' },
+    { value: 'vendor', label: 'Vendor' },
+    { value: 'item', label: 'Item' },
+    { value: 'project', label: 'Project' },
+    { value: 'costing_sheet', label: 'Costing Sheet' },
+    { value: 'other', label: 'Other' },
+] as const;
+
+export const SORT_OPTIONS = [
+    { value: '-timestamp', label: 'Newest First' },
+    { value: 'timestamp', label: 'Oldest First' },
+    { value: '-elapsed_s', label: 'Slowest First' },
+    { value: '-db_queries', label: 'Most Queries' },
+    { value: '-status_code', label: '5xx First' },
+    { value: '-mem_delta', label: 'Memory Growth' },
+    { value: '-mem_after', label: 'Highest Memory' },
+    { value: '-mem_before', label: 'Memory Before (↓)' },
 ] as const;
 
 // ── Colors ──
@@ -81,4 +152,7 @@ export const COLUMN_WIDTHS = {
     queries: 80,
     memory: 90,
     size: 80,
+    module: 90,
+    enterprise: 130,
+    user: 120,
 } as const;

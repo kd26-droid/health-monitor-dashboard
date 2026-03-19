@@ -42,8 +42,9 @@ export function isTaskEvent(event: TEventType): boolean {
 /**
  * Returns color for HTTP status code.
  */
-export function getHttpStatusColor(status: number | null | undefined): string {
+export function getHttpStatusColor(status: number | null | undefined, gatewayTimeout?: boolean): string {
     if (status == null) return '#8E8E93';
+    if (gatewayTimeout || status === 504) return '#F59E0B'; // orange for gateway timeouts
     if (status >= 200 && status < 300) return '#34C759';
     if (status >= 400 && status < 500) return '#FF9500';
     if (status >= 500) return '#FF3B30';

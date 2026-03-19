@@ -5,6 +5,11 @@ interface TokenPromptProps {
     onSubmit: (token: string) => void;
 }
 
+/**
+ * Token prompt overlay — shown when backend returns 403.
+ * Currently inactive since HEALTH_MONITOR_TOKEN is unset on dev/prod.
+ * Kept for future use.
+ */
 const TokenPrompt: React.FC<TokenPromptProps> = ({ onSubmit }) => {
     const [token, setToken] = useState('');
 

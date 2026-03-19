@@ -17,12 +17,17 @@ import {
 import {
     EVENT_OPTIONS,
     METHOD_OPTIONS,
+    MODULE_OPTIONS,
+    SORT_OPTIONS,
 } from '../Constants/healthMonitor.constants';
+
+type TApiSource = 'internal' | 'open_api' | '';
 
 interface ToolbarProps {
     search: string;
     event: TEventType | '';
     method: THttpMethod | '';
+    apiSource: TApiSource;
     fromTs: string;
     toTs: string;
     entryCount: number;
@@ -30,21 +35,30 @@ interface ToolbarProps {
     isLoading: boolean;
     source: 'buffer' | 'database';
     isHistoricalMode: boolean;
+    totalCount?: number;
+    hasMore?: boolean;
     onSearchChange: (value: string) => void;
     onEventChange: (value: TEventType | '') => void;
     onMethodChange: (value: THttpMethod | '') => void;
+    module: string;
+    onModuleChange: (value: string) => void;
+    sortBy: string;
+    onSortByChange: (value: string) => void;
+    onApiSourceChange: (value: TApiSource) => void;
     onFromTsChange: (value: string) => void;
     onToTsChange: (value: string) => void;
     onToggleLive: () => void;
     onClear: () => void;
     onEnterHistorical: (from: string, to: string) => void;
     onExitHistorical: () => void;
+    onLoadMore?: () => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
     search,
     event,
     method,
+    apiSource,
     fromTs,
     toTs,
     entryCount,
@@ -52,15 +66,23 @@ const Toolbar: React.FC<ToolbarProps> = ({
     isLoading,
     source,
     isHistoricalMode,
+    totalCount,
+    hasMore,
     onSearchChange,
     onEventChange,
     onMethodChange,
+    module,
+    onModuleChange,
+    sortBy,
+    onSortByChange,
+    onApiSourceChange,
     onFromTsChange,
     onToTsChange,
     onToggleLive,
     onClear,
     onEnterHistorical,
     onExitHistorical,
+    onLoadMore,
 }) => {
     const handleQueryHistorical = () => {
         if (fromTs) {
@@ -139,6 +161,48 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     ))}
                 </Select>
 
+                {/* Module filter */}
+                <Select
+                    size="small"
+                    value={module}
+                    onChange={(e) => onModuleChange(e.target.value)}
+                    displayEmpty
+                    sx={{ minWidth: 140, height: 36, fontSize: '0.85rem' }}
+                >
+                    {MODULE_OPTIONS.map((opt) => (
+                        <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                    ))}
+                </Select>
+
+                {/* API Source toggle */}
+                <Box sx={{ display: 'flex', border: '1px solid #D1D5DB', borderRadius: 1, overflow: 'hidden', height: 36 }}>
+                    {(['', 'internal', 'open_api'] as TApiSource[]).map((val) => {
+                        const label = val === '' ? 'All' : val === 'internal' ? 'Internal' : 'Open API';
+                        const active = apiSource === val;
+                        return (
+                            <Box
+                                key={val}
+                                onClick={() => onApiSourceChange(val)}
+                                sx={{
+                                    px: 1.5,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    fontSize: '0.8rem',
+                                    fontWeight: active ? 700 : 400,
+                                    cursor: 'pointer',
+                                    backgroundColor: active ? '#6366F1' : '#FFFFFF',
+                                    color: active ? '#FFFFFF' : '#6B7280',
+                                    borderRight: val !== 'open_api' ? '1px solid #D1D5DB' : 'none',
+                                    userSelect: 'none',
+                                    '&:hover': { backgroundColor: active ? '#4F46E5' : '#F9FAFB' },
+                                }}
+                            >
+                                {label}
+                            </Box>
+                        );
+                    })}
+                </Box>
+
                 <Box sx={{ flex: 1 }} />
 
                 {/* Mode indicator */}
@@ -170,7 +234,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
                 {/* Entry count */}
                 <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                    {entryCount.toLocaleString()} entries
+                    {isHistoricalMode && totalCount && totalCount > entryCount
+                        ? `${entryCount.toLocaleString()} of ${totalCount.toLocaleString()} entries`
+                        : `${entryCount.toLocaleString()} entries`}
                 </Typography>
 
                 {/* LIVE / PAUSED / Back to Live */}
@@ -319,9 +385,47 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     {isLoading ? 'Loading...' : 'Query History'}
                 </Button>
 
+                {/* Sort (historical only) */}
+                {isHistoricalMode && (
+                    <Select
+                        size="small"
+                        value={sortBy}
+                        onChange={(e) => onSortByChange(e.target.value)}
+                        sx={{ height: 32, fontSize: '0.8rem', minWidth: 160 }}
+                    >
+                        {SORT_OPTIONS.map((opt) => (
+                            <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: '0.8rem' }}>
+                                {opt.label}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                )}
+
+                {isHistoricalMode && hasMore && (
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={onLoadMore}
+                        disabled={isLoading}
+                        sx={{
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            fontSize: '0.8rem',
+                            height: 32,
+                            borderColor: '#6366F1',
+                            color: '#6366F1',
+                            '&:hover': { borderColor: '#4F46E5', backgroundColor: '#EEF2FF' },
+                        }}
+                    >
+                        {isLoading ? 'Loading...' : 'Load More'}
+                    </Button>
+                )}
+
                 {isHistoricalMode && (
                     <Typography variant="caption" sx={{ color: '#6D28D9', fontSize: '0.7rem', fontWeight: 600 }}>
-                        Showing DB results. Change dates and click &quot;Query History&quot; to re-query.
+                        {hasMore
+                            ? `${totalCount?.toLocaleString()} total — load more to see older entries`
+                            : 'All entries loaded. Change dates and click "Query History" to re-query.'}
                     </Typography>
                 )}
             </Box>

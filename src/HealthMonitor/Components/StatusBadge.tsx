@@ -13,6 +13,10 @@ interface StatusBadgeProps {
     lockTimeout?: boolean;
     hasNPlusOne?: boolean;
     queueTimeS?: number | null;
+    gatewayTimeout?: boolean;
+    isOpenApi?: boolean;
+    duplicateCall?: boolean;
+    duplicateCount?: number;
 }
 
 const BADGE_LABELS: Record<string, string> = {
@@ -21,7 +25,7 @@ const BADGE_LABELS: Record<string, string> = {
     error: 'ERROR',
 };
 
-const StatusBadge: React.FC<StatusBadgeProps> = ({ event, deadlock, lockTimeout, hasNPlusOne, queueTimeS }) => {
+const StatusBadge: React.FC<StatusBadgeProps> = ({ event, deadlock, lockTimeout, hasNPlusOne, queueTimeS, gatewayTimeout, isOpenApi, duplicateCall, duplicateCount }) => {
     const severity = getEventSeverity(event);
     const isTask = isTaskEvent(event);
     const isQueued = queueTimeS != null && queueTimeS > 5;
@@ -40,6 +44,49 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ event, deadlock, lockTimeout,
                     borderRadius: '4px',
                 }}
             />
+            {duplicateCall && (
+                <Chip
+                    label={`DUPE ×${duplicateCount ?? 2}`}
+                    size="small"
+                    sx={{
+                        backgroundColor: '#FFF7ED',
+                        color: '#C2410C',
+                        fontWeight: 700,
+                        fontSize: '0.65rem',
+                        height: 22,
+                        borderRadius: '4px',
+                        border: '1px solid #FDBA74',
+                    }}
+                />
+            )}
+            {gatewayTimeout && (
+                <Chip
+                    label="TIMEOUT"
+                    size="small"
+                    sx={{
+                        backgroundColor: '#FEF3C7',
+                        color: '#B45309',
+                        fontWeight: 700,
+                        fontSize: '0.65rem',
+                        height: 22,
+                        borderRadius: '4px',
+                    }}
+                />
+            )}
+            {isOpenApi && (
+                <Chip
+                    label="OPEN API"
+                    size="small"
+                    sx={{
+                        backgroundColor: '#ECFDF5',
+                        color: '#065F46',
+                        fontWeight: 700,
+                        fontSize: '0.65rem',
+                        height: 22,
+                        borderRadius: '4px',
+                    }}
+                />
+            )}
             {isTask && (
                 <Chip
                     label="TASK"

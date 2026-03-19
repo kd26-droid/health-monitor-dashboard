@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography, Collapse, IconButton } from '@mui/material';
 import { IDbResponse } from '../Interfaces/healthMonitor.types';
+import SqlBlock from './SqlBlock';
 
 interface DbDiagnosticsPanelProps {
     dbData: IDbResponse | null;
@@ -115,24 +116,8 @@ const DbDiagnosticsPanel: React.FC<DbDiagnosticsPanelProps> = ({ dbData }) => {
                                         for {bq.lock_mode} on{' '}
                                         <code style={{ fontSize: '0.75rem' }}>"{bq.locked_table}"</code>
                                     </Typography>
-                                    <Box
-                                        component="pre"
-                                        sx={{
-                                            backgroundColor: '#1F2937',
-                                            color: '#E5E7EB',
-                                            p: 1,
-                                            borderRadius: 0.5,
-                                            fontSize: '0.72rem',
-                                            fontFamily: 'monospace',
-                                            whiteSpace: 'pre-wrap',
-                                            wordBreak: 'break-all',
-                                            mt: 0.5,
-                                            mb: 1,
-                                            maxHeight: 60,
-                                            overflow: 'auto',
-                                        }}
-                                    >
-                                        {bq.blocked_query}
+                                    <Box sx={{ mt: 0.5, mb: 1 }}>
+                                        <SqlBlock sql={bq.blocked_query} />
                                     </Box>
 
                                     <Typography variant="body2" sx={{ fontSize: '0.78rem', pl: 2 }}>
@@ -148,24 +133,8 @@ const DbDiagnosticsPanel: React.FC<DbDiagnosticsPanelProps> = ({ dbData }) => {
                                         </span>
                                         , {blockerSeconds.toFixed(1)}s)
                                     </Typography>
-                                    <Box
-                                        component="pre"
-                                        sx={{
-                                            backgroundColor: '#1F2937',
-                                            color: '#E5E7EB',
-                                            p: 1,
-                                            borderRadius: 0.5,
-                                            fontSize: '0.72rem',
-                                            fontFamily: 'monospace',
-                                            whiteSpace: 'pre-wrap',
-                                            wordBreak: 'break-all',
-                                            mt: 0.5,
-                                            ml: 2,
-                                            maxHeight: 60,
-                                            overflow: 'auto',
-                                        }}
-                                    >
-                                        {bq.blocker_query}
+                                    <Box sx={{ mt: 0.5, ml: 2 }}>
+                                        <SqlBlock sql={bq.blocker_query} />
                                     </Box>
                                 </Box>
                             );
@@ -269,23 +238,8 @@ const DbDiagnosticsPanel: React.FC<DbDiagnosticsPanelProps> = ({ dbData }) => {
                                                 )}
                                             </Typography>
                                             {txn.query_preview && (
-                                                <Box
-                                                    component="pre"
-                                                    sx={{
-                                                        backgroundColor: '#1F2937',
-                                                        color: '#E5E7EB',
-                                                        p: 1,
-                                                        borderRadius: 0.5,
-                                                        fontSize: '0.72rem',
-                                                        fontFamily: 'monospace',
-                                                        whiteSpace: 'pre-wrap',
-                                                        wordBreak: 'break-all',
-                                                        mt: 0.5,
-                                                        maxHeight: 60,
-                                                        overflow: 'auto',
-                                                    }}
-                                                >
-                                                    {txn.query_preview}
+                                                <Box sx={{ mt: 0.5 }}>
+                                                    <SqlBlock sql={txn.query_preview} />
                                                 </Box>
                                             )}
                                         </Box>

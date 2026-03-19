@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { ILogEntry } from '../../Interfaces/healthMonitor.types';
+import SqlBlock from '../SqlBlock';
 
 interface DeadlockDetailsProps {
     entry: ILogEntry;
@@ -41,23 +42,7 @@ const DeadlockDetails: React.FC<DeadlockDetailsProps> = ({ entry }) => {
                     >
                         Query that caused it:
                     </Typography>
-                    <Box
-                        component="pre"
-                        sx={{
-                            backgroundColor: '#1F2937',
-                            color: '#FCA5A5',
-                            p: 1.5,
-                            borderRadius: 1,
-                            fontSize: '0.75rem',
-                            fontFamily: 'monospace',
-                            overflow: 'auto',
-                            maxHeight: 120,
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-all',
-                        }}
-                    >
-                        {entry.deadlock_query}
-                    </Box>
+                    <SqlBlock sql={entry.deadlock_query} />
                 </Box>
             )}
 
@@ -70,23 +55,7 @@ const DeadlockDetails: React.FC<DeadlockDetailsProps> = ({ entry }) => {
                     >
                         What happened:
                     </Typography>
-                    <Box
-                        component="pre"
-                        sx={{
-                            backgroundColor: '#1F2937',
-                            color: '#E5E7EB',
-                            p: 1.5,
-                            borderRadius: 1,
-                            fontSize: '0.75rem',
-                            fontFamily: 'monospace',
-                            overflow: 'auto',
-                            maxHeight: 200,
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-all',
-                        }}
-                    >
-                        {entry.deadlock_detail}
-                    </Box>
+                    <SqlBlock sql={entry.deadlock_detail} previewLength={120} />
                 </Box>
             )}
 

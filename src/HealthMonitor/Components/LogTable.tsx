@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Typography, IconButton, Tooltip } from '@mui/material';
 import { Virtuoso } from 'react-virtuoso';
-import { ILogEntry, IColumnFilters } from '../Interfaces/healthMonitor.types';
+import { ILogEntry, IColumnFilters, IUserInfo, IEnterpriseInfo } from '../Interfaces/healthMonitor.types';
 import { COLUMN_WIDTHS } from '../Constants/healthMonitor.constants';
 import LogRow from './LogRow';
 import DetailCard from './DetailCard';
@@ -15,11 +15,14 @@ interface LogTableProps {
     maxConnections?: number;
     columnFilters: IColumnFilters;
     onColumnFiltersChange: (filters: IColumnFilters) => void;
+    userMap: Map<string, IUserInfo>;
+    enterpriseMap: Map<string, IEnterpriseInfo>;
 }
 
 const COLUMNS = [
     { label: 'Time', width: COLUMN_WIDTHS.time, filterKey: null },
     { label: 'Status', width: COLUMN_WIDTHS.status, filterKey: null },
+    { label: 'Module', width: COLUMN_WIDTHS.module, filterKey: null },
     { label: 'API / Task', width: COLUMN_WIDTHS.apiTask, filterKey: 'apiTask' as const },
     { label: 'Method', width: COLUMN_WIDTHS.method, filterKey: null },
     { label: 'Path', width: COLUMN_WIDTHS.path, filterKey: 'path' as const },
@@ -29,6 +32,8 @@ const COLUMNS = [
     { label: 'Queries', width: COLUMN_WIDTHS.queries, filterKey: 'minQueries' as const },
     { label: 'Memory', width: COLUMN_WIDTHS.memory, filterKey: 'minMemory' as const },
     { label: 'Size', width: COLUMN_WIDTHS.size, filterKey: 'minSize' as const },
+    { label: 'Enterprise', width: COLUMN_WIDTHS.enterprise, filterKey: null },
+    { label: 'User', width: COLUMN_WIDTHS.user, filterKey: null },
 ];
 
 const FILTER_PLACEHOLDERS: Record<string, string> = {
@@ -50,6 +55,8 @@ const LogTable: React.FC<LogTableProps> = ({
     maxConnections,
     columnFilters,
     onColumnFiltersChange,
+    userMap,
+    enterpriseMap,
 }) => {
     const [expandedSeq, setExpandedSeq] = useState<number | null>(null);
     const [showFilters, setShowFilters] = useState(false);
@@ -256,9 +263,11 @@ const LogTable: React.FC<LogTableProps> = ({
                                     isNew={newEntrySeqs.has(entry._seq)}
                                     isExpanded={expandedSeq === entry._seq}
                                     onClick={() => handleRowClick(entry._seq)}
+                                    userMap={userMap}
+                                    enterpriseMap={enterpriseMap}
                                 />
                                 {expandedSeq === entry._seq && (
-                                    <DetailCard entry={entry} maxConnections={maxConnections} />
+                                    <DetailCard entry={entry} maxConnections={maxConnections} userMap={userMap} enterpriseMap={enterpriseMap} />
                                 )}
                             </div>
                         )}
