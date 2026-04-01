@@ -24,6 +24,7 @@ interface DetailCardProps {
 }
 
 const DetailCard: React.FC<DetailCardProps> = ({ entry, maxConnections }) => {
+    const isStart = entry.event === 'request_start';
     const isTask = isTaskEvent(entry.event);
     const hasError = !!(entry.error_type || entry.error);
     const hasTaskArgs = isTask && !!entry.task_args;
@@ -115,18 +116,29 @@ const DetailCard: React.FC<DetailCardProps> = ({ entry, maxConnections }) => {
             </Box>
 
             {/* 2-column grid for detail sections */}
-            <Box
-                sx={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: 2.5,
-                }}
-            >
-                <TimingBreakdown entry={entry} />
-                <DatabaseQueries entry={entry} maxConnections={maxConnections} />
-                <MemoryUsage entry={entry} />
-                {hasResponseSize && <RequestResponseSize entry={entry} />}
-            </Box>
+            {isStart ? (
+                <Box sx={{ p: 2, backgroundColor: '#F0FDF4', borderRadius: 1, border: '1px dashed #15803D' }}>
+                    <Typography variant="body2" sx={{ color: '#15803D', fontWeight: 600, fontSize: '0.85rem' }}>
+                        Request is in flight — no timing or DB data yet.
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#166534', fontSize: '0.8rem', mt: 0.5 }}>
+                        Memory at start: {entry.mem_before_mb != null ? `${entry.mem_before_mb} MB` : '–'}
+                    </Typography>
+                </Box>
+            ) : (
+                <Box
+                    sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: 2.5,
+                    }}
+                >
+                    <TimingBreakdown entry={entry} />
+                    <DatabaseQueries entry={entry} maxConnections={maxConnections} />
+                    <MemoryUsage entry={entry} />
+                    {hasResponseSize && <RequestResponseSize entry={entry} />}
+                </Box>
+            )}
 
             {/* Full-width sections */}
             {hasNPlusOne && (
