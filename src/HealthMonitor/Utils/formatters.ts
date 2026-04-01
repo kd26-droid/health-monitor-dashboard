@@ -1,7 +1,8 @@
 /**
  * Format elapsed seconds as "89ms" or "1.10s"
  */
-export function formatElapsed(seconds: number): string {
+export function formatElapsed(seconds: number | undefined | null): string {
+    if (seconds == null) return '–';
     if (seconds < 1) {
         return `${Math.round(seconds * 1000)}ms`;
     }
@@ -22,7 +23,8 @@ export function formatSize(bytes: number | undefined): string {
  * Format memory delta with sign for table column: "+1.38MB", "-0.50MB", "0MB"
  * Uses 2 decimal places for table display.
  */
-export function formatMemDelta(mb: number): string {
+export function formatMemDelta(mb: number | undefined | null): string {
+    if (mb == null) return '–';
     if (mb === 0) return '0MB';
     const sign = mb > 0 ? '+' : '';
     return `${sign}${mb.toFixed(2)}MB`;
