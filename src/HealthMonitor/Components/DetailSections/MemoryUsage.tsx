@@ -24,7 +24,7 @@ const MemoryUsage: React.FC<MemoryUsageProps> = ({ entry }) => {
                     letterSpacing: 0.5,
                 }}
             >
-                Memory Usage
+                Memory Growth (this request)
             </Typography>
 
             <Typography

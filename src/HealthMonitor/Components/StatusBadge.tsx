@@ -23,9 +23,11 @@ const BADGE_LABELS: Record<string, string> = {
     ok: 'OK',
     slow: 'SLOW',
     error: 'ERROR',
+    start: 'IN FLIGHT',
 };
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ event, deadlock, lockTimeout, hasNPlusOne, queueTimeS, gatewayTimeout, isOpenApi, duplicateCall, duplicateCount }) => {
+    const isStart = event === 'request_start';
     const severity = getEventSeverity(event);
     const isTask = isTaskEvent(event);
     const isQueued = queueTimeS != null && queueTimeS > 5;
@@ -33,15 +35,16 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ event, deadlock, lockTimeout,
     return (
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
             <Chip
-                label={BADGE_LABELS[severity]}
+                label={isStart ? 'IN FLIGHT' : BADGE_LABELS[severity]}
                 size="small"
                 sx={{
-                    backgroundColor: EVENT_BG_COLORS[severity],
-                    color: EVENT_TEXT_COLORS[severity],
+                    backgroundColor: isStart ? '#F0FDF4' : EVENT_BG_COLORS[severity],
+                    color: isStart ? '#15803D' : EVENT_TEXT_COLORS[severity],
                     fontWeight: 600,
                     fontSize: '0.7rem',
                     height: 22,
                     borderRadius: '4px',
+                    border: isStart ? '1px dashed #15803D' : 'none',
                 }}
             />
             {duplicateCall && (

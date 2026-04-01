@@ -29,6 +29,7 @@ export function getEventSeverity(event: TEventType): 'ok' | 'slow' | 'error' {
  * Returns border color for an event type.
  */
 export function getEventBorderColor(event: TEventType): string {
+    if (event === 'request_start') return '#9CA3AF';
     return EVENT_BORDER_COLORS[getEventSeverity(event)] || '#E5E7EB';
 }
 

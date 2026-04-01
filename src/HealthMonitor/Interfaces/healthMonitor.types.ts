@@ -1,6 +1,7 @@
 // ── Event & Method Types ──
 
 export type TEventType =
+    | 'request_start'
     | 'request_ok'
     | 'request_slow'
     | 'request_error'
