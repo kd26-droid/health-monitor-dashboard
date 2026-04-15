@@ -145,6 +145,7 @@ export const EVENT_BORDER_COLORS: Record<string, string> = {
 export const COLUMN_WIDTHS = {
     time: 160,
     status: 100,
+    worker: 50,
     apiTask: 250,
     method: 70,
     path: 240,
