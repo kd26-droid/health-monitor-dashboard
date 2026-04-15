@@ -61,6 +61,7 @@ const DetailCard: React.FC<DetailCardProps> = ({ entry, maxConnections }) => {
                     <>
                         <MetaItem label="Task ID" value={entry.task_id || '--'} mono />
                         <MetaItem label="PID" value={String(entry.pid)} />
+                        {entry.worker_id && <MetaItem label="Worker" value={`W${entry.worker_id}`} />}
                         {entry.task_state && (
                             <MetaItem label="State">
                                 <Chip
@@ -97,6 +98,7 @@ const DetailCard: React.FC<DetailCardProps> = ({ entry, maxConnections }) => {
                             mono
                         />
                         <MetaItem label="PID" value={String(entry.pid)} />
+                        {entry.worker_id && <MetaItem label="Worker" value={`W${entry.worker_id}`} />}
                         {entry.user_id && (
                             <MetaItem
                                 label="User"

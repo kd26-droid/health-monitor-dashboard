@@ -29,6 +29,7 @@ export interface ILogEntry {
     event: TEventType;
     ts: string; // ISO 8601 UTC
     pid: number;
+    worker_id?: string;
 
     // API requests only
     request_id?: string;
