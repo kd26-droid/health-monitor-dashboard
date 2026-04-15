@@ -330,6 +330,7 @@ export interface IColumnFilters {
     minSize: string;
     enterprise: string;
     user: string;
+    worker: string;
 }
 
 export const EMPTY_COLUMN_FILTERS: IColumnFilters = {
@@ -343,6 +344,7 @@ export const EMPTY_COLUMN_FILTERS: IColumnFilters = {
     minSize: '',
     enterprise: '',
     user: '',
+    worker: '',
 };
 
 // ── Computed Metrics ──

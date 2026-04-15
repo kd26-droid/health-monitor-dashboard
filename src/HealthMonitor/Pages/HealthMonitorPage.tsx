@@ -141,6 +141,10 @@ function applyColumnFilters(
             const idMatch = e.user_id.toLowerCase().includes(term);
             if (!nameMatch && !emailMatch && !idMatch) return false;
         }
+        if (f.worker) {
+            if (!e.worker_id) return false;
+            if (!e.worker_id.includes(f.worker)) return false;
+        }
         return true;
     });
 }

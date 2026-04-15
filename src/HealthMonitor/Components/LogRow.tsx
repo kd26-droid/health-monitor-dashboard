@@ -91,6 +91,25 @@ const LogRow: React.FC<LogRowProps> = ({ entry, isNew, isExpanded, onClick, user
                     duplicateCall={entry.duplicate_call}
                     duplicateCount={entry.duplicate_count}
                 />
+                {entry.worker_id && entry.worker_id !== '?' && (
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            fontSize: '0.62rem',
+                            fontWeight: 600,
+                            color: '#6B7280',
+                            backgroundColor: '#F3F4F6',
+                            border: '1px solid #E5E7EB',
+                            borderRadius: '3px',
+                            px: 0.5,
+                            mt: 0.3,
+                            display: 'inline-block',
+                            lineHeight: 1.5,
+                        }}
+                    >
+                        W{entry.worker_id}
+                    </Typography>
+                )}
             </Cell>
 
             {/* Module */}

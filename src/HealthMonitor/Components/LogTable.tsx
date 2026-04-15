@@ -41,8 +41,8 @@ const COLUMNS: ColumnDef[] = [
         description: 'Server timestamp when the request or task started, shown in your local timezone.',
     },
     {
-        label: 'Status', width: COLUMN_WIDTHS.status, filterKey: null, sortKey: null,
-        description: 'OK = completed normally · SLOW = exceeded the response-time threshold · ERROR = threw an exception or returned a 5xx. Additional badges: TASK (background job), DUPE (same request fired twice), TIMEOUT (504 gateway), DEADLOCK, LOCK WAIT, N+1, QUEUED, OPEN API.',
+        label: 'Status', width: COLUMN_WIDTHS.status, filterKey: 'worker', sortKey: null,
+        description: 'OK = completed normally · SLOW = exceeded the response-time threshold · ERROR = threw an exception or returned a 5xx. Worker badge (W1/W2/W3) shows which Gunicorn worker handled the request. Filter by worker number to isolate per-worker issues.',
     },
     {
         label: 'Module', width: COLUMN_WIDTHS.module, filterKey: null, sortKey: null,
@@ -105,6 +105,7 @@ const FILTER_PLACEHOLDERS: Record<string, string> = {
     minSize:      '>= KB',
     enterprise:   'name...',
     user:         'name/email...',
+    worker:       'e.g. 1',
 };
 
 const LogTable: React.FC<LogTableProps> = ({
