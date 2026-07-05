@@ -17,11 +17,11 @@ export interface IEnvConfig {
 export const ENV_CONFIGS: Record<TEnvName, IEnvConfig> = {
     dev: {
         label: 'DEV',
-        apiUrl: 'https://poiigw0go0.execute-api.us-east-1.amazonaws.com/dev',
+        apiUrl: 'https://factwiserestapi.azure-api.net',
     },
     prod: {
         label: 'PROD',
-        apiUrl: 'https://qc9s5bz8d7.execute-api.us-east-1.amazonaws.com/prod',
+        apiUrl: 'https://factwise-prod-apim-new.azure-api.net',
     },
 };
 
