@@ -357,3 +357,82 @@ export interface IMetrics {
     avgTime: number;
     avgQueries: number;
 }
+
+// ── OOM Forensics (GET /monitor/oom-event/) ──
+// Mirrors the report dict from backend health_monitor/oom_forensics.py.
+
+export interface IOomInFlight {
+    what: string;
+    request_id?: string;
+    ts?: string;
+    user_id?: string | null;
+    enterprise_id?: string | null;
+}
+
+export interface IOomSuspect {
+    what: string;
+    event?: string;
+    ts?: string;
+    request_id?: string;
+    score: number;
+    reasons: string[];
+    mem_after_mb?: number | null;
+    mem_delta_mb?: number | null;
+    user_id?: string | null;
+    enterprise_id?: string | null;
+}
+
+export interface IOomMemoryPoint {
+    ts?: string;
+    mem_after_mb?: number | null;
+    mem_delta_mb?: number | null;
+    what?: string;
+}
+
+export interface IOomReport {
+    worker: {
+        worker_id: string | null;
+        ecs_task: string | null;
+        slot: string | null;
+        pid: number | null;
+        dead_ts: string | null;
+        entries_seen: number;
+    };
+    last_successful_request: string | null;
+    last_successful_at: string | null;
+    in_flight_requests: IOomInFlight[];
+    memory: {
+        peak_mb: number | null;
+        peak_at: string | null;
+        biggest_jump: { what: string; mem_delta_mb: number | null; ts: string | null } | null;
+        series: IOomMemoryPoint[];
+    };
+    prime_suspect: IOomSuspect | null;
+    suspects: IOomSuspect[];
+    session: {
+        frontend_session_id: string | null;
+        clarity_url: string | null;
+        bugsink_url: string | null;
+    };
+    clarity_insights?: IOomClarityInsights | null;
+    source?: string;
+}
+
+export interface IOomClaritySignal {
+    metric: string;
+    url: string;
+    occurrences: number;
+    sessions: number;
+}
+
+export interface IOomClarityInsights {
+    num_days: number;
+    note: string;
+    top_signals: IOomClaritySignal[];
+    by_metric: Record<string, Array<{ url: string; occurrences: number; sessions: number; pct?: number }>>;
+}
+
+export interface IOomReportResponse {
+    report: IOomReport;
+    markdown: string;
+}
