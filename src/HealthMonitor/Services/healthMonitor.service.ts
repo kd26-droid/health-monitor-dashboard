@@ -29,7 +29,7 @@ const MONITOR_PREFIX = isLocal ? '/monitor' : '/authentication/monitor';
 // responses and never hit the backend. The purge (/cleanup/) stays active.
 // Re-enable monitoring by setting this to false.
 // Typed as boolean (not literal true) so the guarded code stays reachable.
-const MONITOR_APIS_DISABLED: boolean = true;
+const MONITOR_APIS_DISABLED: boolean = false;
 
 // ── Dedicated axios instance per environment ──
 
