@@ -36,7 +36,7 @@ function fmtTime(ts: string | null): string {
 }
 
 const MemoryHogsPanel: React.FC<MemoryHogsPanelProps> = ({ enterpriseId, onEnterpriseIdChange }) => {
-    const [open, setOpen] = useState(true); // headline panel — open by default
+    const [open, setOpen] = useState(false);
     const [hours, setHours] = useState(24);
     const [minDelta, setMinDelta] = useState(25);
     const [includeColdStart, setIncludeColdStart] = useState(false);

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Box } from '@mui/material';
+import { Box, Typography, Collapse, IconButton } from '@mui/material';
 import {
     ILogEntry,
     IMetrics,
@@ -21,7 +21,6 @@ import TokenPrompt from '../Components/TokenPrompt';
 import EmptyState from '../Components/EmptyState';
 import DbDiagnosticsPanel from '../Components/DbDiagnosticsPanel';
 import ErrorBreakdownPanel from '../Components/ErrorBreakdownPanel';
-import OomForensicsPanel from '../Components/OomForensicsPanel';
 import OomEventsPanel from '../Components/OomEventsPanel';
 import MemoryHogsPanel from '../Components/MemoryHogsPanel';
 import AsyncTasksPanel from '../Components/AsyncTasksPanel';
@@ -187,6 +186,9 @@ const HealthMonitorPage: React.FC = () => {
     // Enterprise scope shared by the Azure-backed forensics panels so the user
     // can focus on one enterprise instead of all traffic mixed together.
     const [scopeEnterpriseId, setScopeEnterpriseId] = useState('');
+    // The whole forensics/analysis stack lives behind ONE collapsed bar so the
+    // default view stays the live API log, exactly how it used to work.
+    const [forensicsOpen, setForensicsOpen] = useState(false);
     const filters = useMonitorFilters();
     const health = useHealthPolling(auth.handle403);
 
@@ -300,33 +302,49 @@ const HealthMonitorPage: React.FC = () => {
                     onLoadMore={logs.loadMore}
                 />
 
-                {/* DB Diagnostics only shown in non-production environments */}
-                {process.env.REACT_APP_ENV !== 'production' &&
-                    process.env.REACT_APP_ENV !== 'newdbtest1' && (
-                        <DbDiagnosticsPanel dbData={health.dbData} />
-                    )}
+                {/* ── One collapsed bar for ALL analysis, so the default view
+                    stays the live API log. Open it only for deep-dives. ── */}
+                <Box sx={{ mx: 3, mb: 1, border: '1px solid #E5E7EB', borderRadius: 1, backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
+                    <Box
+                        onClick={() => setForensicsOpen((v) => !v)}
+                        sx={{ display: 'flex', alignItems: 'center', px: 2, py: 1, cursor: 'pointer', '&:hover': { backgroundColor: '#F9FAFB' } }}
+                    >
+                        <IconButton size="small" sx={{ mr: 1, p: 0 }}>
+                            <i className={`bi bi-chevron-${forensicsOpen ? 'down' : 'right'}`} style={{ fontSize: 12 }} />
+                        </IconButton>
+                        <i className="bi bi-clipboard-data" style={{ fontSize: 14, marginRight: 6, color: '#6366F1' }} />
+                        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: 0.5, color: 'text.secondary' }}>
+                            Forensics &amp; Analysis
+                        </Typography>
+                        <Box sx={{ flex: 1 }} />
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
+                            Memory hogs · OOM culprits · async tasks · errors · DB — open when you need a deep-dive
+                        </Typography>
+                    </Box>
 
-                {/* ── Azure Log Analytics-backed forensics (zero DB load) ── */}
-                {/* Headline: which API is ballooning memory / caused OOM */}
-                <MemoryHogsPanel
-                    enterpriseId={scopeEnterpriseId}
-                    onEnterpriseIdChange={setScopeEnterpriseId}
-                />
-
-                {/* Container kills matched to their real culprit */}
-                <OomEventsPanel />
-
-                {/* Background tasks + results, separate from request/response */}
-                <AsyncTasksPanel />
-
-                {/* Error Breakdown Panel */}
-                <ErrorBreakdownPanel isConnected={health.isConnected} />
-
-                {/* OOM Forensics Panel (legacy manual reconstruct — kept as a fallback) */}
-                <OomForensicsPanel isConnected={health.isConnected} />
-
-                {/* Cleanup Panel */}
-                <CleanupPanel isConnected={health.isConnected} />
+                    <Collapse in={forensicsOpen}>
+                        <Box sx={{ borderTop: '1px solid #E5E7EB', pt: 1, backgroundColor: '#FAFAFB' }}>
+                            {/* Which API is ballooning memory / caused OOM */}
+                            <MemoryHogsPanel
+                                enterpriseId={scopeEnterpriseId}
+                                onEnterpriseIdChange={setScopeEnterpriseId}
+                            />
+                            {/* Container kills matched to their real culprit */}
+                            <OomEventsPanel />
+                            {/* Background tasks + results, separate from request/response */}
+                            <AsyncTasksPanel />
+                            {/* Error breakdown */}
+                            <ErrorBreakdownPanel isConnected={health.isConnected} />
+                            {/* DB diagnostics — non-production only */}
+                            {process.env.REACT_APP_ENV !== 'production' &&
+                                process.env.REACT_APP_ENV !== 'newdbtest1' && (
+                                    <DbDiagnosticsPanel dbData={health.dbData} />
+                                )}
+                            {/* Cleanup */}
+                            <CleanupPanel isConnected={health.isConnected} />
+                        </Box>
+                    </Collapse>
+                </Box>
 
                 {/* Log table takes remaining space */}
                 <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
