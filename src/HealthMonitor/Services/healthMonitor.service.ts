@@ -245,6 +245,8 @@ export interface IFetchMemoryHogsParams {
     enterprise_id?: string;
     include_cold_start?: boolean;
     limit?: number;
+    from_ts?: string;
+    to_ts?: string;
 }
 
 export async function fetchMemoryHogs(
@@ -263,6 +265,8 @@ export async function fetchMemoryHogs(
 export interface IFetchOomEventsParams {
     hours?: number;
     limit?: number;
+    from_ts?: string;
+    to_ts?: string;
 }
 
 export async function fetchOomEvents(
@@ -280,6 +284,8 @@ export interface IFetchAsyncTasksParams {
     state?: string;
     min_elapsed_s?: number;
     limit?: number;
+    from_ts?: string;
+    to_ts?: string;
 }
 
 export async function fetchAsyncTasks(

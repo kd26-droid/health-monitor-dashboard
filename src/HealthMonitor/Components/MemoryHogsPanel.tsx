@@ -2,19 +2,18 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Box, Typography, Collapse, IconButton, TextField, Button, Chip, Tooltip } from '@mui/material';
 import { IMemoryHogsResponse, IMemoryHogEndpoint, IMemoryHogEvent } from '../Interfaces/healthMonitor.types';
 import { fetchMemoryHogs } from '../Services/healthMonitor.service';
+import TimeRangeControl, { ITimeRange, toUtcIso } from './TimeRangeControl';
 
 interface MemoryHogsPanelProps {
     enterpriseId: string;
     onEnterpriseIdChange: (v: string) => void;
 }
 
-const WINDOWS: { label: string; hours: number }[] = [
-    { label: '1h', hours: 1 },
-    { label: '6h', hours: 6 },
-    { label: '24h', hours: 24 },
-    { label: '3d', hours: 72 },
-    { label: '7d', hours: 168 },
-];
+function rangeLabel(r: ITimeRange): string {
+    if (r.fromTs && r.toTs) return 'the selected range';
+    const m: Record<number, string> = { 1: '1h', 6: '6h', 24: '24h', 72: '3d', 168: '7d' };
+    return `the last ${m[r.hours] || r.hours + 'h'}`;
+}
 
 // Colour scale for a memory delta (MB). The whole point is that a big number
 // SCREAMS — so the user's eye lands on the real hog instantly.
@@ -37,7 +36,7 @@ function fmtTime(ts: string | null): string {
 
 const MemoryHogsPanel: React.FC<MemoryHogsPanelProps> = ({ enterpriseId, onEnterpriseIdChange }) => {
     const [open, setOpen] = useState(false);
-    const [hours, setHours] = useState(24);
+    const [range, setRange] = useState<ITimeRange>({ hours: 24 });
     const [minDelta, setMinDelta] = useState(25);
     const [includeColdStart, setIncludeColdStart] = useState(false);
     const [data, setData] = useState<IMemoryHogsResponse | null>(null);
@@ -50,7 +49,9 @@ const MemoryHogsPanel: React.FC<MemoryHogsPanelProps> = ({ enterpriseId, onEnter
         setError(null);
         try {
             const res = await fetchMemoryHogs({
-                hours,
+                hours: range.hours,
+                from_ts: toUtcIso(range.fromTs),
+                to_ts: toUtcIso(range.toTs),
                 min_delta_mb: minDelta,
                 enterprise_id: enterpriseId.trim() || undefined,
                 include_cold_start: includeColdStart,
@@ -63,7 +64,7 @@ const MemoryHogsPanel: React.FC<MemoryHogsPanelProps> = ({ enterpriseId, onEnter
         } finally {
             setLoading(false);
         }
-    }, [hours, minDelta, enterpriseId, includeColdStart]);
+    }, [range, minDelta, enterpriseId, includeColdStart]);
 
     // Auto-load when the window/enterprise/threshold changes and panel is open.
     useEffect(() => {
@@ -110,19 +111,7 @@ const MemoryHogsPanel: React.FC<MemoryHogsPanelProps> = ({ enterpriseId, onEnter
                             onKeyDown={(e) => e.key === 'Enter' && load()}
                             sx={{ minWidth: 260, '& input': { fontSize: '0.78rem', py: 0.75 } }}
                         />
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            {WINDOWS.map((w) => (
-                                <Button
-                                    key={w.hours}
-                                    size="small"
-                                    variant={hours === w.hours ? 'contained' : 'outlined'}
-                                    onClick={() => setHours(w.hours)}
-                                    sx={{ fontSize: '0.7rem', textTransform: 'none', minWidth: 0, py: 0.25, px: 1 }}
-                                >
-                                    {w.label}
-                                </Button>
-                            ))}
-                        </Box>
+                        <TimeRangeControl value={range} onChange={setRange} />
                         <Tooltip title="Ignore requests that grew RSS by less than this many MB">
                             <TextField
                                 size="small"
@@ -159,8 +148,7 @@ const MemoryHogsPanel: React.FC<MemoryHogsPanelProps> = ({ enterpriseId, onEnter
 
                     {!error && endpoints.length === 0 && !loading && (
                         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
-                            No endpoint grew memory by ≥{minDelta}MB on a warm worker in the last{' '}
-                            {WINDOWS.find((w) => w.hours === hours)?.label || `${hours}h`}
+                            No endpoint grew memory by ≥{minDelta}MB on a warm worker in {rangeLabel(range)}
                             {enterpriseId.trim() ? ` for enterprise ${enterpriseId.trim()}` : ''}. That's good — nothing is ballooning.
                         </Typography>
                     )}

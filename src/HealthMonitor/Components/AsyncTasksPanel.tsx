@@ -2,13 +2,13 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Box, Typography, Collapse, IconButton, Button, Chip, Tooltip } from '@mui/material';
 import { IAsyncTasksResponse, IAsyncTask } from '../Interfaces/healthMonitor.types';
 import { fetchAsyncTasks } from '../Services/healthMonitor.service';
+import TimeRangeControl, { ITimeRange, toUtcIso } from './TimeRangeControl';
 
-const WINDOWS: { label: string; hours: number }[] = [
-    { label: '1h', hours: 1 },
-    { label: '6h', hours: 6 },
-    { label: '24h', hours: 24 },
-    { label: '3d', hours: 72 },
-];
+function rangeLabel(r: ITimeRange): string {
+    if (r.fromTs && r.toTs) return 'the selected range';
+    const m: Record<number, string> = { 1: '1h', 6: '6h', 24: '24h', 72: '3d', 168: '7d' };
+    return `the last ${m[r.hours] || r.hours + 'h'}`;
+}
 
 const STATES: { label: string; value: string }[] = [
     { label: 'All', value: '' },
@@ -40,7 +40,7 @@ function stateChip(state: string): { bg: string; fg: string } {
 
 const AsyncTasksPanel: React.FC = () => {
     const [open, setOpen] = useState(false);
-    const [hours, setHours] = useState(24);
+    const [range, setRange] = useState<ITimeRange>({ hours: 24 });
     const [state, setState] = useState('');
     const [slowOnly, setSlowOnly] = useState(false);
     const [data, setData] = useState<IAsyncTasksResponse | null>(null);
@@ -52,7 +52,9 @@ const AsyncTasksPanel: React.FC = () => {
         setError(null);
         try {
             const res = await fetchAsyncTasks({
-                hours,
+                hours: range.hours,
+                from_ts: toUtcIso(range.fromTs),
+                to_ts: toUtcIso(range.toTs),
                 state: state || undefined,
                 min_elapsed_s: slowOnly ? 5 : undefined,
             });
@@ -64,7 +66,7 @@ const AsyncTasksPanel: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [hours, state, slowOnly]);
+    }, [range, state, slowOnly]);
 
     useEffect(() => {
         if (open) load();
@@ -94,14 +96,7 @@ const AsyncTasksPanel: React.FC = () => {
             <Collapse in={open}>
                 <Box sx={{ px: 2, pb: 2, borderTop: '1px solid #E5E7EB' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 1.5, flexWrap: 'wrap' }}>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            {WINDOWS.map((w) => (
-                                <Button key={w.hours} size="small" variant={hours === w.hours ? 'contained' : 'outlined'}
-                                    onClick={() => setHours(w.hours)} sx={{ fontSize: '0.7rem', textTransform: 'none', minWidth: 0, py: 0.25, px: 1 }}>
-                                    {w.label}
-                                </Button>
-                            ))}
-                        </Box>
+                        <TimeRangeControl value={range} onChange={setRange} />
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
                             {STATES.map((s) => (
                                 <Button key={s.value} size="small" variant={state === s.value ? 'contained' : 'outlined'}
@@ -128,7 +123,7 @@ const AsyncTasksPanel: React.FC = () => {
 
                     {!error && tasks.length === 0 && !loading && (
                         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
-                            No Celery tasks{state ? ` with state ${state}` : ''}{slowOnly ? ' slower than 5s' : ''} in the last {WINDOWS.find((w) => w.hours === hours)?.label}.
+                            No Celery tasks{state ? ` with state ${state}` : ''}{slowOnly ? ' slower than 5s' : ''} in {rangeLabel(range)}.
                         </Typography>
                     )}
 

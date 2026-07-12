@@ -2,12 +2,19 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Box, Typography, Collapse, IconButton, Button, Chip } from '@mui/material';
 import { IOomEventsResponse, IOomEvent, IOomCulprit, TOomConfidence } from '../Interfaces/healthMonitor.types';
 import { fetchOomEvents } from '../Services/healthMonitor.service';
+import TimeRangeControl, { ITimeRange, toUtcIso } from './TimeRangeControl';
 
-const WINDOWS: { label: string; hours: number }[] = [
+const OOM_PRESETS = [
     { label: '24h', hours: 24 },
     { label: '3d', hours: 72 },
     { label: '7d', hours: 168 },
 ];
+
+function rangeLabel(r: ITimeRange): string {
+    if (r.fromTs && r.toTs) return 'the selected range';
+    const m: Record<number, string> = { 24: '24h', 72: '3d', 168: '7d' };
+    return `the last ${m[r.hours] || r.hours + 'h'}`;
+}
 
 function fmtTime(ts?: string | null): string {
     if (!ts) return '—';
@@ -32,7 +39,7 @@ function culpritLabel(c: IOomCulprit): string {
 
 const OomEventsPanel: React.FC = () => {
     const [open, setOpen] = useState(false);
-    const [hours, setHours] = useState(72);
+    const [range, setRange] = useState<ITimeRange>({ hours: 72 });
     const [data, setData] = useState<IOomEventsResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -42,7 +49,11 @@ const OomEventsPanel: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetchOomEvents({ hours });
+            const res = await fetchOomEvents({
+                hours: range.hours,
+                from_ts: toUtcIso(range.fromTs),
+                to_ts: toUtcIso(range.toTs),
+            });
             setData(res);
             if (res.error) setError(res.error);
         } catch (err: any) {
@@ -51,7 +62,7 @@ const OomEventsPanel: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [hours]);
+    }, [range]);
 
     useEffect(() => {
         if (open) load();
@@ -83,16 +94,8 @@ const OomEventsPanel: React.FC = () => {
 
             <Collapse in={open}>
                 <Box sx={{ px: 2, pb: 2, borderTop: '1px solid #E5E7EB' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 1.5 }}>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            {WINDOWS.map((w) => (
-                                <Button key={w.hours} size="small" variant={hours === w.hours ? 'contained' : 'outlined'}
-                                    onClick={() => setHours(w.hours)}
-                                    sx={{ fontSize: '0.7rem', textTransform: 'none', minWidth: 0, py: 0.25, px: 1 }}>
-                                    {w.label}
-                                </Button>
-                            ))}
-                        </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 1.5, flexWrap: 'wrap' }}>
+                        <TimeRangeControl value={range} onChange={setRange} presets={OOM_PRESETS} />
                         <Button size="small" variant="contained" disabled={loading} onClick={load} sx={{ fontSize: '0.72rem', textTransform: 'none' }}>
                             {loading ? 'Loading…' : '↻ Refresh'}
                         </Button>
@@ -107,7 +110,7 @@ const OomEventsPanel: React.FC = () => {
 
                     {!error && events.length === 0 && !loading && (
                         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
-                            No container OOM kills (exit 137 / SIGKILL) in the last {WINDOWS.find((w) => w.hours === hours)?.label}. Deploys and manual restarts are not shown here.
+                            No container OOM kills (exit 137 / SIGKILL) in {rangeLabel(range)}. Deploys and manual restarts are not shown here.
                         </Typography>
                     )}
 
