@@ -250,21 +250,24 @@ const HealthMonitorPage: React.FC = () => {
             className="health-monitor"
             sx={{
                 height: '100vh',
+                overflowY: 'auto',
                 display: 'flex',
                 flexDirection: 'column',
                 backgroundColor: '#F3F4F6',
-                overflow: 'hidden',
             }}
         >
-            <HealthBanner
-                healthData={health.healthData}
-                dbData={health.dbData}
-                systemData={health.systemData}
-                lastUpdated={health.lastUpdated}
-                isConnected={health.isConnected}
-            />
+            {/* Banner stays pinned while the whole page scrolls under it */}
+            <Box sx={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                <HealthBanner
+                    healthData={health.healthData}
+                    dbData={health.dbData}
+                    systemData={health.systemData}
+                    lastUpdated={health.lastUpdated}
+                    isConnected={health.isConnected}
+                />
+            </Box>
 
-            <Box sx={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 <MetricsCards
                     metrics={metrics}
                     dbData={health.dbData}
@@ -346,8 +349,10 @@ const HealthMonitorPage: React.FC = () => {
                     </Collapse>
                 </Box>
 
-                {/* Log table takes remaining space */}
-                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                {/* Log table: a tall bounded viewport (virtualized list needs a
+                    bounded height) that flows in the page scroll rather than
+                    locking the layout to the viewport. */}
+                <Box sx={{ height: 'calc(100vh - 150px)', minHeight: 420, display: 'flex', flexDirection: 'column' }}>
                     {!health.isConnected && logs.isFirstLoad ? (
                         <EmptyState
                             variant="disconnected"
