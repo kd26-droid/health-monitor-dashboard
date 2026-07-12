@@ -37,7 +37,7 @@ interface ColumnDef {
 
 const COLUMNS: ColumnDef[] = [
     {
-        label: 'Time', width: COLUMN_WIDTHS.time, filterKey: null, sortKey: 'timestamp',
+        label: 'Time / Date', width: COLUMN_WIDTHS.time, filterKey: null, sortKey: 'timestamp',
         description: 'Server timestamp when the request or task started, shown in your local timezone.',
     },
     {

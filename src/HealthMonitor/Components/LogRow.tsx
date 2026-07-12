@@ -13,7 +13,8 @@ import {
     formatElapsed,
     formatSize,
     formatMemDelta,
-    formatTimestamp,
+    formatDate,
+    formatClock,
     formatQueryString,
 } from '../Utils/formatters';
 import StatusBadge from './StatusBadge';
@@ -68,13 +69,19 @@ const LogRow: React.FC<LogRowProps> = ({ entry, isNew, isExpanded, onClick, user
                 },
             }}
         >
-            {/* Time */}
+            {/* Date / Time */}
             <Cell width={COLUMN_WIDTHS.time}>
                 <Typography
                     variant="body2"
-                    sx={{ fontSize: '0.78rem', color: 'text.secondary' }}
+                    sx={{ fontSize: '0.78rem', color: 'text.primary', lineHeight: 1.25, fontVariantNumeric: 'tabular-nums' }}
                 >
-                    {formatTimestamp(entry.ts)}
+                    {formatClock(entry.ts)}
+                </Typography>
+                <Typography
+                    variant="caption"
+                    sx={{ fontSize: '0.66rem', color: 'text.secondary', lineHeight: 1.1 }}
+                >
+                    {formatDate(entry.ts)}
                 </Typography>
             </Cell>
 

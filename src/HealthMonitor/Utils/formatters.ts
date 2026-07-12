@@ -55,6 +55,24 @@ export function formatTimestamp(isoString: string): string {
     return `${month} ${day} ${time}`;
 }
 
+/** Date only, e.g. "Jul 12, 2026". */
+export function formatDate(isoString: string): string {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+    });
+}
+
+/** Clock only, 24h, e.g. "14:31:07". */
+export function formatClock(isoString: string): string {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString('en-US', { hour12: false });
+}
+
 /**
  * Format query_params dict as a URL query string: "page=2&status=active"
  * Multi-value params become repeated keys: "id=1&id=2"
