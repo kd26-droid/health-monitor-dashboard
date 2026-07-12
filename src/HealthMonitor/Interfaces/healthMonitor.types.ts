@@ -436,3 +436,123 @@ export interface IOomReportResponse {
     report: IOomReport;
     markdown: string;
 }
+
+// ── Azure Log Analytics-backed forensics ──────────────────────────────────
+// These come from /memory-hogs/, /oom-events/, /async-tasks/ which read from
+// Azure (not the DB) — so history/forensics add zero load to Postgres.
+
+export interface IMemoryHogEvent {
+    ts: string;
+    enterprise_id: string | null;
+    view: string | null;
+    method: string | null;
+    path: string | null;
+    status: number | null;
+    mem_before_mb: number | null;
+    mem_after_mb: number | null;
+    mem_delta_mb: number | null;
+    mem_used_pct: number | null;
+    elapsed_s: number | null;
+    db_queries: number | null;
+    request_id: string | null;
+    worker_id: string | null;
+    is_cold_start: boolean;
+}
+
+export interface IMemoryHogEndpoint {
+    enterprise_id: string | null;
+    view: string | null;
+    method: string | null;
+    path: string | null;
+    hits: number;
+    max_delta_mb: number;
+    avg_delta_mb: number;
+    max_mem_after_mb: number;
+    worst_ts: string | null;
+    cold_start_hits: number;
+}
+
+export interface IMemoryHogsResponse {
+    source: string;
+    error: string | null;
+    cached: boolean;
+    window_hours: number;
+    min_delta_mb: number;
+    by_endpoint: IMemoryHogEndpoint[];
+    worst_events: IMemoryHogEvent[];
+}
+
+export type TOomConfidence = 'in_flight' | 'peak_memory' | 'none';
+
+export interface IOomCulprit {
+    kind?: 'web' | 'celery';
+    ts?: string | null;
+    ts_azure?: string | null;
+    enterprise_id?: string | null;
+    view?: string | null;
+    method?: string | null;
+    path?: string | null;
+    task?: string | null;
+    task_id?: string | null;
+    status?: number | null;
+    request_id?: string | null;
+    worker_id?: string | null;
+    mem_before_mb?: number | null;
+    mem_after_mb?: number | null;
+    mem_delta_mb?: number | null;
+    elapsed_s?: number | null;
+    _gap_s?: number;
+    error?: string | null;
+}
+
+export interface IOomEvent {
+    ts: string;
+    container: string;
+    kind: 'web' | 'celery';
+    replica: string | null;
+    reason: string | null;
+    exit_code: string | null;
+    culprit: IOomCulprit | null;
+    culprit_confidence: TOomConfidence;
+    recent: IOomCulprit[];
+}
+
+export interface IOomEventsResponse {
+    source: string;
+    error: string | null;
+    cached: boolean;
+    window_hours: number;
+    events: IOomEvent[];
+}
+
+export interface IAsyncTask {
+    ts: string;
+    task: string | null;
+    task_id: string | null;
+    state: string;
+    elapsed_s: number | null;
+    pid: number | null;
+    hostname: string | null;
+    mem_before_mb: number | null;
+    mem_after_mb: number | null;
+    mem_delta_mb: number | null;
+    db_queries: number | null;
+    db_time_s: number | null;
+    n_plus_1: string | null;
+    error: string | null;
+}
+
+export interface IAsyncTasksResponse {
+    source: string;
+    error: string | null;
+    cached: boolean;
+    window_hours: number;
+    tasks: IAsyncTask[];
+}
+
+export interface ILogSourceResponse {
+    configured: boolean;
+    workspace_id: string | null;
+    web_app: string;
+    celery_app: string;
+}

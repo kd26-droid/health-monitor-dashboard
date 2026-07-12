@@ -7,6 +7,10 @@ import {
     IErrorsResponse,
     IResolveNamesResponse,
     IOomReportResponse,
+    IMemoryHogsResponse,
+    IOomEventsResponse,
+    IAsyncTasksResponse,
+    ILogSourceResponse,
     TEventType,
     THttpMethod,
 } from '../Interfaces/healthMonitor.types';
@@ -227,6 +231,70 @@ export async function fetchOomReport(
     const res = await getMonitorInstance().get<IOomReportResponse>(
         `${MONITOR_PREFIX}/oom-event/`,
         { params }
+    );
+    return res.data;
+}
+
+// ── Azure Log Analytics-backed forensics ──────────────────────────────────
+// These read from Azure (container stdout → Log Analytics), NOT the DB, so
+// they are safe to keep live regardless of the DB kill-switch above.
+
+export interface IFetchMemoryHogsParams {
+    hours?: number;
+    min_delta_mb?: number;
+    enterprise_id?: string;
+    include_cold_start?: boolean;
+    limit?: number;
+}
+
+export async function fetchMemoryHogs(
+    params: IFetchMemoryHogsParams = {}
+): Promise<IMemoryHogsResponse> {
+    const query: Record<string, unknown> = { ...params };
+    if (params.include_cold_start) query.include_cold_start = 'true';
+    else delete query.include_cold_start;
+    const res = await getMonitorInstance().get<IMemoryHogsResponse>(
+        `${MONITOR_PREFIX}/memory-hogs/`,
+        { params: query }
+    );
+    return res.data;
+}
+
+export interface IFetchOomEventsParams {
+    hours?: number;
+    limit?: number;
+}
+
+export async function fetchOomEvents(
+    params: IFetchOomEventsParams = {}
+): Promise<IOomEventsResponse> {
+    const res = await getMonitorInstance().get<IOomEventsResponse>(
+        `${MONITOR_PREFIX}/oom-events/`,
+        { params }
+    );
+    return res.data;
+}
+
+export interface IFetchAsyncTasksParams {
+    hours?: number;
+    state?: string;
+    min_elapsed_s?: number;
+    limit?: number;
+}
+
+export async function fetchAsyncTasks(
+    params: IFetchAsyncTasksParams = {}
+): Promise<IAsyncTasksResponse> {
+    const res = await getMonitorInstance().get<IAsyncTasksResponse>(
+        `${MONITOR_PREFIX}/async-tasks/`,
+        { params }
+    );
+    return res.data;
+}
+
+export async function fetchLogSource(): Promise<ILogSourceResponse> {
+    const res = await getMonitorInstance().get<ILogSourceResponse>(
+        `${MONITOR_PREFIX}/log-source/`
     );
     return res.data;
 }

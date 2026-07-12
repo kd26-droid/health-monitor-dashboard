@@ -21,6 +21,10 @@ import TokenPrompt from '../Components/TokenPrompt';
 import EmptyState from '../Components/EmptyState';
 import DbDiagnosticsPanel from '../Components/DbDiagnosticsPanel';
 import ErrorBreakdownPanel from '../Components/ErrorBreakdownPanel';
+import OomForensicsPanel from '../Components/OomForensicsPanel';
+import OomEventsPanel from '../Components/OomEventsPanel';
+import MemoryHogsPanel from '../Components/MemoryHogsPanel';
+import AsyncTasksPanel from '../Components/AsyncTasksPanel';
 import CleanupPanel from '../Components/CleanupPanel';
 import '../styles/healthMonitor.scss';
 
@@ -180,6 +184,9 @@ function applySortBy(entries: ILogEntry[], sortBy: string): ILogEntry[] {
 const HealthMonitorPage: React.FC = () => {
     const auth = useMonitorAuth();
     const [columnFilters, setColumnFilters] = useState<IColumnFilters>(EMPTY_COLUMN_FILTERS);
+    // Enterprise scope shared by the Azure-backed forensics panels so the user
+    // can focus on one enterprise instead of all traffic mixed together.
+    const [scopeEnterpriseId, setScopeEnterpriseId] = useState('');
     const filters = useMonitorFilters();
     const health = useHealthPolling(auth.handle403);
 
@@ -299,8 +306,24 @@ const HealthMonitorPage: React.FC = () => {
                         <DbDiagnosticsPanel dbData={health.dbData} />
                     )}
 
+                {/* ── Azure Log Analytics-backed forensics (zero DB load) ── */}
+                {/* Headline: which API is ballooning memory / caused OOM */}
+                <MemoryHogsPanel
+                    enterpriseId={scopeEnterpriseId}
+                    onEnterpriseIdChange={setScopeEnterpriseId}
+                />
+
+                {/* Container kills matched to their real culprit */}
+                <OomEventsPanel />
+
+                {/* Background tasks + results, separate from request/response */}
+                <AsyncTasksPanel />
+
                 {/* Error Breakdown Panel */}
                 <ErrorBreakdownPanel isConnected={health.isConnected} />
+
+                {/* OOM Forensics Panel (legacy manual reconstruct — kept as a fallback) */}
+                <OomForensicsPanel isConnected={health.isConnected} />
 
                 {/* Cleanup Panel */}
                 <CleanupPanel isConnected={health.isConnected} />
